@@ -26,6 +26,9 @@ pub fn save_file(_path: String, _content: String) -> Result<(), String> {
 #[allow(dead_code)]
 pub(crate) fn validate_markdown_path(path: &str) -> Result<PathBuf, String> {
     let p = PathBuf::from(path);
+    if !p.is_absolute() {
+        return Err("path must be absolute".into());
+    }
     match p.extension().and_then(|e| e.to_str()) {
         Some(ext) if matches!(ext.to_ascii_lowercase().as_str(), "md" | "markdown" | "txt") => Ok(p),
         Some(other) => Err(format!("unsupported extension: {other}")),
@@ -54,5 +57,16 @@ mod tests {
     fn validate_markdown_path_rejects_other_extensions() {
         assert!(validate_markdown_path("/tmp/x.exe").is_err());
         assert!(validate_markdown_path("/tmp/x").is_err());
+    }
+
+    #[test]
+    fn validate_markdown_path_accepts_txt() {
+        assert!(validate_markdown_path("/tmp/x.txt").is_ok());
+    }
+
+    #[test]
+    fn validate_markdown_path_rejects_relative_path() {
+        assert!(validate_markdown_path("relative/x.md").is_err());
+        assert!(validate_markdown_path("../../etc/passwd.md").is_err());
     }
 }
