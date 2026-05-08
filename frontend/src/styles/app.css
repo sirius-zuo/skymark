@@ -106,3 +106,107 @@ body {
 }
 
 .toast.visible { opacity: 1; }
+
+/* ── Vault mode layout ─────────────────────────────────────────────────── */
+
+.panes.vault-mode { grid-template-columns: 220px 1fr 1fr; }
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.sidebar-pane {
+  border-right: var(--pane-divider);
+  background: var(--color-bg);
+  overflow-y: auto;
+  font-size: 13px;
+  user-select: none;
+}
+
+.sidebar-pane ul { list-style: none; margin: 0; padding: 0; }
+.sidebar-pane li { padding: 0; }
+
+.tree-file {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+.tree-file:hover { background: var(--color-border); }
+.tree-file.active { background: var(--color-accent); color: var(--color-surface); }
+
+.tree-dir-toggle {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.tree-dir-toggle:hover { color: var(--color-text); }
+
+/* ── Palette overlay ───────────────────────────────────────────────────── */
+
+#palette-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+}
+#palette-overlay.visible { display: flex; }
+
+.palette-card {
+  background: var(--color-surface);
+  border: var(--pane-divider);
+  border-radius: 8px;
+  width: 560px;
+  max-width: calc(100vw - 48px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.palette-input {
+  border: none;
+  border-bottom: var(--pane-divider);
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+  font-family: var(--font-ui);
+  outline: none;
+  width: 100%;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.palette-results {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.palette-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.palette-item:hover,
+.palette-item.selected { background: var(--color-border); }
+
+.palette-item-name { font-weight: 500; font-size: 13px; color: var(--color-text); flex-shrink: 0; }
+.palette-item-path { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Vault titlebar prefix ─────────────────────────────────────────────── */
+
+#vault-prefix {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-right: var(--space-1);
+}

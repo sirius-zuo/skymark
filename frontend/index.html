@@ -10,15 +10,18 @@
   <body>
     <div id="app">
       <header class="titlebar">
+        <span id="vault-prefix" hidden></span>
         <span class="doc-title" id="doc-title">Untitled</span>
         <span class="dirty-indicator" id="dirty-indicator" hidden>●</span>
       </header>
       <main class="panes">
+        <section class="pane sidebar-pane" id="sidebar" hidden></section>
         <section class="pane editor-pane" id="editor"></section>
         <section class="pane preview-pane" id="preview"></section>
       </main>
     </div>
     <script type="module" src="./src/main.ts"></script>
     <div id="toast-root"></div>
+    <div id="palette-overlay"></div>
   </body>
 </html>
