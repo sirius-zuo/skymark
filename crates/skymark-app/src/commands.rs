@@ -136,4 +136,66 @@ mod tests {
         let r = save_file("/tmp/foo.exe".into(), "x".into());
         assert!(r.is_err());
     }
+
+    #[test]
+    fn draft_save_and_load_round_trip() {
+        use crate::draft::{save_draft_to_dir, load_draft_from_dir};
+        let dir = std::env::temp_dir()
+            .join(format!("skymark-draft-rtrip-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let key = save_draft_to_dir(&dir, Some("/tmp/test.md"), "# hello draft\n").unwrap();
+        let content = load_draft_from_dir(&dir, &key).unwrap();
+        assert_eq!(content, "# hello draft\n");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn draft_discard_removes_both_files() {
+        use crate::draft::{save_draft_to_dir, load_draft_from_dir, discard_draft_from_dir};
+        let dir = std::env::temp_dir()
+            .join(format!("skymark-draft-discard-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let key = save_draft_to_dir(&dir, Some("/tmp/test.md"), "content").unwrap();
+        discard_draft_from_dir(&dir, &key).unwrap();
+        assert!(load_draft_from_dir(&dir, &key).is_err());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn draft_invalid_key_rejected() {
+        use crate::draft::load_draft_from_dir;
+        let dir = std::env::temp_dir();
+        assert!(load_draft_from_dir(&dir, "../../etc/passwd").is_err());
+        assert!(load_draft_from_dir(&dir, "../traversal").is_err());
+    }
+
+    #[test]
+    fn draft_gc_removes_old_drafts() {
+        use crate::draft::{save_draft_to_dir, load_draft_from_dir, gc_old_drafts_in_dir, DraftMeta};
+        let dir = std::env::temp_dir()
+            .join(format!("skymark-draft-gc-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let key = save_draft_to_dir(&dir, None, "old content").unwrap();
+
+        // Back-date the meta to 31 days ago.
+        let meta_path = dir.join(format!("{key}.meta.json"));
+        let old_unix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            .saturating_sub(31 * 24 * 60 * 60);
+        let meta = DraftMeta { original_path: None, saved_at_unix: old_unix, source_mtime_unix: None };
+        let json = serde_json::to_string(&meta).unwrap();
+        std::fs::write(&meta_path, json.as_bytes()).unwrap();
+
+        gc_old_drafts_in_dir(&dir).unwrap();
+        assert!(load_draft_from_dir(&dir, &key).is_err(), "old draft should be GC'd");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
