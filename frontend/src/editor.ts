@@ -11,6 +11,7 @@ export interface EditorHandle {
   view: EditorView;
   getValue(): string;
   setValue(text: string): void;
+  scrollToLine(line: number): void;
 }
 
 export type DocChangeListener = (text: string) => void;
@@ -142,6 +143,11 @@ export function createEditor(parent: HTMLElement, onChange: DocChangeListener): 
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: text },
       });
+    },
+    scrollToLine(line: number) {
+      const doc = view.state.doc;
+      const target = doc.line(Math.min(line + 1, doc.lines));
+      view.dispatch({ selection: { anchor: target.from }, scrollIntoView: true });
     },
   };
 }
