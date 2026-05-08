@@ -102,7 +102,7 @@ A full preview re-render of a 10k-word document blows the 50ms latency budget. T
 ### 4.2 Preview Pane
 
 - HTML produced by `skymark-core::render_html(text)` — the same function `HtmlExporter` calls.
-- KaTeX renders `$…$` and `$$…$$`. Loaded eagerly because math is enabled by default per Q5 = C.
+- KaTeX renders `$…$` and `$$…$$`. Loaded eagerly because math is enabled by default in v1.
 - Mermaid renders ` ```mermaid ` blocks. Lazy-loaded on first encounter to keep cold start tight when no diagrams are present.
 - Prism renders syntax-highlighted code blocks. Language packs lazy-loaded by language tag.
 - Scroll sync: the parser emits a per-block source-line range; `data-source-line` attributes on top-level preview elements drive bidirectional scroll mapping between editor and preview.
@@ -144,7 +144,7 @@ pub trait FormatConverter {
 }
 ```
 
-A converter MAY support only one direction; consumers query `supports_export`/`supports_import` before calling. The frontend export/import dialogs enumerate registered converters and present those with the matching capability.
+A converter MAY support only one direction; consumers query `supports_export`/`supports_import` before calling. `skymark-core` exposes a `ConverterRegistry` that holds the built-in providers; `skymark-app` adds its host-only providers (e.g., `WebviewPdfExporter`) into the same registry at startup. The frontend export/import dialogs enumerate the merged registry and present converters with the matching capability.
 
 ### 6.2 v1 Providers (Built-in)
 
