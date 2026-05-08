@@ -17,6 +17,7 @@ thiserror = "1"
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+notify-debouncer-mini = "0.4"
 
 [profile.release]
 opt-level = "s"

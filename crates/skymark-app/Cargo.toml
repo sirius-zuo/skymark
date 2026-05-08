@@ -15,6 +15,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 skymark-core = { path = "../skymark-core" }
+notify-debouncer-mini.workspace = true
 
 [[bin]]
 name = "skymark"

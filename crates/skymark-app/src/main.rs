@@ -3,6 +3,7 @@
 mod commands;
 mod draft;
 mod vault;
+mod watcher;
 
 use tauri::Manager;
 
@@ -13,6 +14,9 @@ fn main() {
             if let Ok(dir) = app.path().app_data_dir().map(|d| d.join("drafts")) {
                 let _ = draft::gc_old_drafts_in_dir(&dir);
             }
+            app.manage(watcher::WatcherState {
+                debouncer: std::sync::Mutex::new(None),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -24,6 +28,8 @@ fn main() {
             draft::list_drafts,
             draft::discard_draft,
             vault::scan_vault,
+            watcher::watch_paths,
+            watcher::unwatch_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skymark");
