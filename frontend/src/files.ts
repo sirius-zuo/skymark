@@ -40,11 +40,6 @@ export function createFileFlow(): FileFlow {
         emit();
       }
     },
-    newDocument() {
-      state.path = null;
-      state.isDirty = false;
-      emit();
-    },
     async openInteractive() {
       if (!isTauri()) {
         console.warn("[skymark] open requires the Tauri host");
@@ -89,6 +84,11 @@ export function createFileFlow(): FileFlow {
       state.isDirty = false;
       emit();
       return opened.content;
+    },
+    newDocument() {
+      state.path = null;
+      state.isDirty = false;
+      emit();
     },
   };
 }
