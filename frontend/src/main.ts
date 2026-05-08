@@ -1,6 +1,9 @@
 import { createEditor } from "./editor";
 import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
+import { createDraftHandle } from "./draft";
+import { showToast } from "./toast";
+import { isTauri } from "./api";
 
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
@@ -12,10 +15,12 @@ if (!editorHost || !previewHost || !titleEl || !dirtyEl) {
 
 const preview = createPreview(previewHost);
 const files = createFileFlow();
+const drafts = createDraftHandle();
 
 const editor = createEditor(editorHost, (text) => {
   preview.update(text);
   files.markDirty();
+  drafts.onDocChange(files.state.path, () => editor.getValue());
 });
 
 files.onStateChange((s) => {
@@ -23,11 +28,14 @@ files.onStateChange((s) => {
   dirtyEl.hidden = !s.isDirty;
 });
 
+files.onAfterSave((path) => {
+  drafts.onExplicitSave(path);
+});
+
 const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
 editor.setValue(initial);
 preview.update(initial);
 
-// cmd/ctrl+O = open, cmd/ctrl+S = save, cmd/ctrl+N = new.
 window.addEventListener("keydown", (e) => {
   const mod = e.metaKey || e.ctrlKey;
   if (!mod) return;
@@ -50,6 +58,54 @@ window.addEventListener("keydown", (e) => {
     files.newDocument();
   }
 });
+
+// Draft recovery on launch.
+void (async () => {
+  const recoverable = await drafts.checkRecovery();
+  if (recoverable.length === 0) return;
+
+  const draft = recoverable[0];
+  const label = draft.original_path ? basename(draft.original_path) : "Untitled";
+
+  if (draft.needs_resolution) {
+    const keepDraft = confirm(
+      `"${label}" was modified externally since your last edit.\n\n` +
+      "OK = restore your unsaved draft\n" +
+      "Cancel = use the version on disk"
+    );
+    if (keepDraft) {
+      const content = await drafts.recoverDraft(draft.draft_key);
+      editor.setValue(content);
+      preview.update(content);
+      showToast(`Restored draft of "${label}"`);
+    } else {
+      await drafts.dismissDraft(draft.draft_key);
+    }
+  } else {
+    const content = await drafts.recoverDraft(draft.draft_key);
+    editor.setValue(content);
+    preview.update(content);
+    showToast(`Recovered unsaved changes to "${label}"`);
+  }
+})();
+
+// Save-on-close: intercept window close when dirty.
+if (isTauri()) {
+  void (async () => {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    const win = getCurrentWindow();
+    await win.onCloseRequested(async (event: { preventDefault(): void }) => {
+      if (!files.state.isDirty) return;
+      event.preventDefault();
+      const saved = await files.saveInteractive(editor.getValue());
+      if (!saved) {
+        const discard = confirm("Discard unsaved changes and close?");
+        if (!discard) return;
+      }
+      await win.destroy();
+    });
+  })();
+}
 
 function basename(path: string): string {
   const sep = path.includes("\\") ? "\\" : "/";

@@ -27,6 +27,29 @@ export async function saveFile(path: string, content: string): Promise<void> {
   await invoke<void>("save_file", { path, content });
 }
 
+export interface DraftInfo {
+  draft_key: string;
+  original_path: string | null;
+  saved_at_unix: number;
+  needs_resolution: boolean;
+}
+
+export async function saveDraft(path: string | null, content: string): Promise<string> {
+  return await invoke<string>("save_draft", { path, content });
+}
+
+export async function loadDraft(draftKey: string): Promise<string> {
+  return await invoke<string>("load_draft", { draftKey });
+}
+
+export async function listDrafts(): Promise<DraftInfo[]> {
+  return await invoke<DraftInfo[]>("list_drafts");
+}
+
+export async function discardDraft(draftKey: string): Promise<void> {
+  await invoke<void>("discard_draft", { draftKey });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

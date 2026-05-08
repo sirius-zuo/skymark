@@ -9,6 +9,7 @@ export interface DocumentState {
 export interface FileFlow {
   state: DocumentState;
   onStateChange(listener: (s: DocumentState) => void): void;
+  onAfterSave(listener: (path: string) => void): void;  // NEW
   markDirty(): void;
   openInteractive(): Promise<string | null>; // returns loaded content or null if cancelled
   saveInteractive(content: string): Promise<boolean>; // false if cancelled
@@ -18,6 +19,7 @@ export interface FileFlow {
 export function createFileFlow(): FileFlow {
   const state: DocumentState = { path: null, isDirty: false };
   const listeners: Array<(s: DocumentState) => void> = [];
+  const saveListeners: Array<(path: string) => void> = [];
 
   function emit(): void {
     for (const l of listeners) l({ ...state });
@@ -27,6 +29,9 @@ export function createFileFlow(): FileFlow {
     state,
     onStateChange(l) {
       listeners.push(l);
+    },
+    onAfterSave(l) {
+      saveListeners.push(l);
     },
     markDirty() {
       if (!state.isDirty) {
@@ -74,6 +79,7 @@ export function createFileFlow(): FileFlow {
       state.path = target;
       state.isDirty = false;
       emit();
+      for (const l of saveListeners) l(target);
       return true;
     },
   };
