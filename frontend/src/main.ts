@@ -82,6 +82,7 @@ files.onAfterSave((_path) => {
 const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
 editor.setValue(initial);
 preview.update(initial);
+files.clearDirty();
 
 // ---- Keyboard shortcuts ----------------------------------------------------
 
@@ -148,6 +149,7 @@ function switchTab(idx: number): void {
   if (!entry) return;
   editor.setValue(entry.content);
   files.clearDirty();
+  tabs.updateActive({ isDirty: false });
   editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
@@ -171,6 +173,7 @@ async function handleCloseTab(idx: number): Promise<void> {
   if (active) {
     editor.setValue(active.content);
     files.clearDirty();
+    tabs.updateActive({ isDirty: false });
     preview.update(active.content);
     tree.setActive(active.absPath);
     updateTitlebar(active.absPath);
@@ -203,6 +206,7 @@ async function openVault(): Promise<void> {
   sidebarResizer.hidden = false;
   tabBar.hidden = false;
   panes.classList.add("vault-mode");
+  localStorage.setItem('skymark:vault-root', vault.root!);
 
   const savedWidth = localStorage.getItem('skymark:sidebar-width');
   if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
@@ -247,6 +251,7 @@ async function openVaultFile(file: VaultFile): Promise<void> {
   tabs.addTab(file.abs_path, content);
   editor.setValue(content);
   files.clearDirty();
+  tabs.updateActive({ isDirty: false });
   preview.update(content);
   tree.setActive(file.abs_path);
   updateTitlebar(file.abs_path);
@@ -403,15 +408,27 @@ void (async () => {
   }
 })().catch((err) => console.error("[skymark] draft recovery failed:", err));
 
-// ---- Startup tab restoration -----------------------------------------------
+// ---- Startup vault + tab restoration ----------------------------------------
 
 void (async () => {
-  if (!vault.root) return;
+  const savedRoot = localStorage.getItem('skymark:vault-root');
+  if (!savedRoot || !isTauri()) return;
+  const ok = await vault.openFromPath(savedRoot);
+  if (!ok) { localStorage.removeItem('skymark:vault-root'); return; }
+
+  sidebar.hidden = false;
+  sidebarResizer.hidden = false;
+  tabBar.hidden = false;
+  panes.classList.add("vault-mode");
+  const savedWidth = localStorage.getItem('skymark:sidebar-width');
+  if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
+  tree.render(vault.files, null);
+
   const saved = tabs.restore();
   for (const { absPath } of saved.entries) {
     try {
       const opened = await openFile(absPath);
-      const relPath = opened.path.slice(vault.root!.length + 1);
+      const relPath = opened.path.slice(savedRoot.length + 1);
       const fileName = basename(opened.path);
       tabs.addTab(opened.path, opened.content);
       headings.index(opened.path, relPath, fileName, opened.content);
@@ -426,11 +443,15 @@ void (async () => {
   if (tabs.active) {
     editor.setValue(tabs.active.content);
     files.clearDirty();
+    tabs.updateActive({ isDirty: false });
     preview.update(tabs.active.content);
     tree.setActive(tabs.active.absPath);
     updateTitlebar(tabs.active.absPath);
     rebindTabBar();
     void watchCurrentTabs();
+  } else {
+    const autoFile = vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ?? vault.files[0];
+    if (autoFile) { await openVaultFile(autoFile); void watchCurrentTabs(); }
   }
 })();
 

@@ -13,6 +13,7 @@ export interface VaultHandle {
   readonly root: string | null;
   readonly files: VaultFile[];
   open(): Promise<boolean>;
+  openFromPath(path: string): Promise<boolean>;
 }
 
 export function createVaultHandle(): VaultHandle {
@@ -35,6 +36,18 @@ export function createVaultHandle(): VaultHandle {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         showToast(msg.startsWith("vault too large") ? msg : `Failed to open vault: ${msg}`);
+        return false;
+      }
+    },
+
+    async openFromPath(path: string) {
+      if (!isTauri()) return false;
+      try {
+        const result = await invoke<VaultFile[]>("scan_vault", { path });
+        root = path;
+        files = result;
+        return true;
+      } catch {
         return false;
       }
     },
