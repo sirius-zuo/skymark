@@ -80,3 +80,29 @@ body {
   padding-left: var(--space-4);
   color: var(--color-text-muted);
 }
+
+#toast-root {
+  position: fixed;
+  bottom: var(--space-5);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--color-text);
+  color: var(--color-surface);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.toast.visible { opacity: 1; }
