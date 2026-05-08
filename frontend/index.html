@@ -12,11 +12,19 @@
       <header class="titlebar">
         <span id="vault-prefix" hidden></span>
         <span class="doc-title" id="doc-title">Untitled</span>
-        <span class="dirty-indicator" id="dirty-indicator" hidden>●</span>
+        <span class="dirty-indicator" id="dirty-indicator" hidden>&#x25CF;</span>
       </header>
+      <div id="tab-bar" hidden></div>
       <main class="panes">
         <section class="pane sidebar-pane" id="sidebar" hidden></section>
-        <section class="pane editor-pane" id="editor"></section>
+        <div id="sidebar-resizer" hidden></div>
+        <section class="pane editor-pane" id="editor">
+          <div id="reload-banner" hidden>
+            <span id="reload-banner-msg">This file was changed on disk.</span>
+            <button id="reload-confirm">Reload</button>
+            <button id="reload-dismiss">Keep Mine</button>
+          </div>
+        </section>
         <section class="pane preview-pane" id="preview"></section>
       </main>
     </div>
