@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Skymark",
+  "version": "0.1.0",
+  "identifier": "org.skymark.desktop",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "frontendDist": "../../frontend/dist",
+    "devUrl": "http://localhost:1420"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Skymark",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file: asset: tauri:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
+  },
+  "plugins": {}
+}

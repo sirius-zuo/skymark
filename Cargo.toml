@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/skymark-core"]
-# skymark-app is added in Phase 1 Task 7.
+members = ["crates/skymark-core", "crates/skymark-app"]
 
 [workspace.package]
 version = "0.1.0"

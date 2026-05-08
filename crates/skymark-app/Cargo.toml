@@ -1,0 +1,25 @@
+[package]
+name = "skymark-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Skymark desktop app: Tauri 2 backend"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+tauri = { workspace = true, features = [] }
+tauri-plugin-dialog.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+skymark-core = { path = "../skymark-core" }
+
+[[bin]]
+name = "skymark"
+path = "src/main.rs"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
