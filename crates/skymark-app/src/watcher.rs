@@ -14,8 +14,6 @@ pub fn watch_paths(
     state: tauri::State<WatcherState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    *state.debouncer.lock().unwrap() = None;
-
     let app_clone = app.clone();
     let mut debouncer = new_debouncer(
         Duration::from_millis(500),
@@ -40,12 +38,13 @@ pub fn watch_paths(
             .map_err(|e| e.to_string())?;
     }
 
-    *state.debouncer.lock().unwrap() = Some(debouncer);
+    // Only swap on full success — old watcher dropped here after new one is ready
+    *state.debouncer.lock().map_err(|e| e.to_string())? = Some(debouncer);
     Ok(())
 }
 
 #[tauri::command]
 pub fn unwatch_paths(state: tauri::State<WatcherState>) -> Result<(), String> {
-    *state.debouncer.lock().unwrap() = None;
+    *state.debouncer.lock().map_err(|e| e.to_string())? = None;
     Ok(())
 }
