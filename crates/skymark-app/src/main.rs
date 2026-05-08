@@ -2,6 +2,7 @@
 
 mod commands;
 mod draft;
+mod vault;
 
 use tauri::Manager;
 
@@ -22,6 +23,7 @@ fn main() {
             draft::load_draft,
             draft::list_drafts,
             draft::discard_draft,
+            vault::scan_vault,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skymark");
