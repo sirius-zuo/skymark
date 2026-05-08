@@ -51,3 +51,27 @@ fn renders_fenced_code_block() {
     assert!(html.contains("<code>"), "got: {html}");
     assert!(html.contains("fn main()"), "got: {html}");
 }
+
+#[test]
+fn renders_gfm_table() {
+    let md = "| a | b |\n|---|---|\n| 1 | 2 |";
+    let html = render_html(md).unwrap();
+    assert!(html.contains("<table>"), "got: {html}");
+    assert!(html.contains("<th>a</th>"), "got: {html}");
+    assert!(html.contains("<td>1</td>"), "got: {html}");
+}
+
+#[test]
+fn renders_gfm_strikethrough() {
+    let html = render_html("~~gone~~").unwrap();
+    assert!(html.contains("<del>gone</del>"), "got: {html}");
+}
+
+#[test]
+fn renders_gfm_tasklist() {
+    let md = "- [ ] open\n- [x] done";
+    let html = render_html(md).unwrap();
+    assert!(html.contains("type=\"checkbox\""), "got: {html}");
+    assert!(html.matches("type=\"checkbox\"").count() >= 2, "got: {html}");
+    assert!(html.contains("checked"), "got: {html}");
+}
