@@ -1,0 +1,23 @@
+# Rust
+target/
+Cargo.lock.bak
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Tauri build outputs
+crates/skymark-app/target/
+crates/skymark-app/gen/
+
+# Test outputs
+**/*.rs.bk
+
+# Skymark vault internals (forward-looking)
+.skymark/
