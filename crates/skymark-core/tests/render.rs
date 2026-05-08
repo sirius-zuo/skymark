@@ -75,3 +75,47 @@ fn renders_gfm_tasklist() {
     assert!(html.matches("type=\"checkbox\"").count() >= 2, "got: {html}");
     assert!(html.contains("checked"), "got: {html}");
 }
+
+#[test]
+fn strips_script_tag_in_raw_html() {
+    let md = "before\n\n<script>alert('xss')</script>\n\nafter";
+    let html = render_html(md).unwrap();
+    assert!(!html.contains("<script>"), "got: {html}");
+    assert!(!html.contains("alert"), "got: {html}");
+}
+
+#[test]
+fn strips_inline_event_handlers_in_raw_html() {
+    let md = "<a href=\"https://example.com\" onclick=\"alert('xss')\">click</a>";
+    let html = render_html(md).unwrap();
+    assert!(!html.contains("onclick"), "got: {html}");
+    assert!(!html.contains("alert"), "got: {html}");
+}
+
+#[test]
+fn strips_javascript_url_in_link() {
+    let md = "[click](javascript:alert('xss'))";
+    let html = render_html(md).unwrap();
+    assert!(!html.to_lowercase().contains("javascript:"), "got: {html}");
+}
+
+#[test]
+fn strips_data_url_in_image_src() {
+    let md = "![evil](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)";
+    let html = render_html(md).unwrap();
+    assert!(!html.contains("data:text/html"), "got: {html}");
+}
+
+#[test]
+fn allows_https_link() {
+    let md = "[ok](https://example.com)";
+    let html = render_html(md).unwrap();
+    assert!(html.contains("href=\"https://example.com\""), "got: {html}");
+}
+
+#[test]
+fn allows_relative_image_path() {
+    let md = "![img](attachments/x.png)";
+    let html = render_html(md).unwrap();
+    assert!(html.contains("src=\"attachments/x.png\""), "got: {html}");
+}
