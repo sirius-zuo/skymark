@@ -17,6 +17,7 @@
     "vite": "^5.2.0"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@codemirror/state": "^6.4.0",
