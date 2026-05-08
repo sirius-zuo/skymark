@@ -21,7 +21,7 @@ export interface TabHandle {
   onActiveChange(listener: (entry: TabEntry | null) => void): void;
   renderBar(container: HTMLElement): void;
   persist(): void;
-  restore(): Array<{ absPath: string }>;
+  restore(): { entries: Array<{ absPath: string }>; activeIdx: number };
 }
 
 export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle {
@@ -149,12 +149,16 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
     restore() {
       try {
         const raw = localStorage.getItem('skymark:tabs');
-        if (!raw) return [];
-        const parsed = JSON.parse(raw) as { paths: unknown };
-        if (!Array.isArray(parsed.paths)) return [];
-        return (parsed.paths as string[]).map(p => ({ absPath: p }));
+        if (!raw) return { entries: [], activeIdx: -1 };
+        const parsed = JSON.parse(raw) as { paths: unknown; activeIdx?: unknown };
+        if (!Array.isArray(parsed.paths)) return { entries: [], activeIdx: -1 };
+        const savedActiveIdx = typeof parsed.activeIdx === 'number' ? parsed.activeIdx : -1;
+        return {
+          entries: (parsed.paths as string[]).map(p => ({ absPath: p })),
+          activeIdx: savedActiveIdx,
+        };
       } catch {
-        return [];
+        return { entries: [], activeIdx: -1 };
       }
     },
   };

@@ -73,6 +73,10 @@ files.onAfterSave((_path) => {
   drafts.onExplicitSave(_path);
   tabs.updateActive({ isDirty: false });
   rebindTabBar();
+  if (tabs.active && vault.root) {
+    links.update(tabs.active.absPath, editor.getValue(), vault.files);
+    tree.setActive(tabs.active.absPath);
+  }
 });
 
 const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
@@ -161,6 +165,8 @@ async function handleCloseTab(idx: number): Promise<void> {
     if (!discard) return;
   }
   tabs.forceCloseTab(idx);
+  headings.remove(entry.absPath);
+  links.remove(entry.absPath);
   const active = tabs.active;
   if (active) {
     editor.setValue(active.content);
@@ -175,6 +181,7 @@ async function handleCloseTab(idx: number): Promise<void> {
     files.newDocument();
     reloadBanner.hidden = true;
   }
+  if (vault.root && active) tree.setActive(active.absPath);
   rebindTabBar();
   void watchCurrentTabs();
 }
@@ -184,6 +191,8 @@ async function handleCloseTab(idx: number): Promise<void> {
 async function openVault(): Promise<void> {
   const ok = await vault.open();
   if (!ok) return;
+
+  if (isTauri()) void invoke("unwatch_paths");
 
   const prevPaths = tabs.entries.map(e => e.absPath);
   tabs.clearAll();
@@ -287,8 +296,8 @@ if (isTauri()) {
   void (async () => {
     const { listen } = await import("@tauri-apps/api/event");
     await listen<string>("file-changed", (event) => {
-      const changedPath = event.payload;
-      const tabIdx = tabs.entries.findIndex(e => e.absPath === changedPath);
+      const changedPath = event.payload.replace(/\\/g, "/");
+      const tabIdx = tabs.entries.findIndex(e => e.absPath.replace(/\\/g, "/") === changedPath);
       if (tabIdx === -1) return;
       if (tabIdx === tabs.activeIdx) {
         reloadBanner.hidden = false;
@@ -311,6 +320,13 @@ reloadConfirm.addEventListener("click", () => {
     preview.update(content);
     reloadBanner.hidden = true;
     rebindTabBar();
+    if (vault.root) {
+      const relPath = active.absPath.slice(vault.root.length + 1);
+      const fileName = basename(active.absPath);
+      headings.index(active.absPath, relPath, fileName, content);
+      links.update(active.absPath, content, vault.files);
+      tree.setActive(active.absPath);
+    }
   })();
 });
 
@@ -392,7 +408,7 @@ void (async () => {
 void (async () => {
   if (!vault.root) return;
   const saved = tabs.restore();
-  for (const { absPath } of saved) {
+  for (const { absPath } of saved.entries) {
     try {
       const opened = await openFile(absPath);
       const relPath = opened.path.slice(vault.root!.length + 1);
@@ -403,6 +419,9 @@ void (async () => {
     } catch {
       // file no longer exists
     }
+  }
+  if (saved.activeIdx >= 0 && saved.activeIdx < tabs.entries.length) {
+    tabs.activateTab(saved.activeIdx);
   }
   if (tabs.active) {
     editor.setValue(tabs.active.content);
