@@ -13,8 +13,13 @@ pub fn render(text: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn open_file(_path: String) -> Result<OpenedFile, String> {
-    Err("not implemented".into())
+pub fn open_file(path: String) -> Result<OpenedFile, String> {
+    let validated = validate_markdown_path(&path)?;
+    let content = std::fs::read_to_string(&validated).map_err(|e| format!("read failed: {e}"))?;
+    Ok(OpenedFile {
+        path: validated.to_string_lossy().into_owned(),
+        content,
+    })
 }
 
 #[tauri::command]
@@ -68,5 +73,32 @@ mod tests {
     fn validate_markdown_path_rejects_relative_path() {
         assert!(validate_markdown_path("relative/x.md").is_err());
         assert!(validate_markdown_path("../../etc/passwd.md").is_err());
+    }
+
+    #[test]
+    fn open_file_reads_existing_markdown() {
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("skymark-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("hello.md");
+        std::fs::File::create(&path).unwrap().write_all(b"# hello\n").unwrap();
+
+        let opened = open_file(path.to_string_lossy().into_owned()).unwrap();
+        assert_eq!(opened.path, path.to_string_lossy());
+        assert_eq!(opened.content, "# hello\n");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn open_file_rejects_non_markdown_extension() {
+        let r = open_file("/tmp/foo.exe".into());
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn open_file_rejects_missing_file() {
+        let r = open_file("/tmp/skymark-does-not-exist-xyz123.md".into());
+        assert!(r.is_err());
     }
 }
