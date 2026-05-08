@@ -69,7 +69,8 @@ export function createTree(
   function makeFileItem(f: VaultFile): HTMLElement {
     const li = document.createElement("li");
     const span = document.createElement("span");
-    span.className = "tree-file" + (f.abs_path === currentActive ? " active" : "");
+    span.classList.add("tree-file");
+    if (f.abs_path === currentActive) span.classList.add("active");
     span.textContent = f.name;
     span.title = f.rel_path;
     span.addEventListener("click", () => onSelect(f));
