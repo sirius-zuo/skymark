@@ -13,6 +13,7 @@ export interface TabHandle {
   readonly active: TabEntry | null;
   addTab(absPath: string, content: string): void;
   closeTab(idx: number): boolean;
+  forceCloseTab(idx: number): void;
   activateTab(idx: number): void;
   updateActive(patch: Partial<Pick<TabEntry, 'content' | 'isDirty' | 'cursorPos' | 'scrollTop' | 'externallyModified'>>): void;
   markExternallyModified(idx: number): void;
@@ -73,6 +74,12 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
       notify();
       doPersist();
       return true;
+    },
+
+    forceCloseTab(idx) {
+      if (idx < 0 || idx >= entries.length) return;
+      entries[idx].isDirty = false;
+      this.closeTab(idx);
     },
 
     activateTab(idx) {

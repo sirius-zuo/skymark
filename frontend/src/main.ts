@@ -140,7 +140,8 @@ function switchTab(idx: number): void {
     });
   }
   tabs.activateTab(idx);
-  const entry = tabs.active!;
+  const entry = tabs.active;
+  if (!entry) return;
   editor.setValue(entry.content);
   files.clearDirty();
   editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
@@ -158,9 +159,8 @@ async function handleCloseTab(idx: number): Promise<void> {
   if (entry.isDirty) {
     const discard = confirm(`Discard unsaved changes to "${basename(entry.absPath)}"?`);
     if (!discard) return;
-    entry.isDirty = false;
   }
-  tabs.closeTab(idx);
+  tabs.forceCloseTab(idx);
   const active = tabs.active;
   if (active) {
     editor.setValue(active.content);
@@ -331,12 +331,14 @@ sidebarResizer.addEventListener("pointerdown", (e) => {
     panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
     localStorage.setItem('skymark:sidebar-width', String(w));
   };
-  const onUp = () => {
+  const cleanup = () => {
     sidebarResizer.removeEventListener("pointermove", onMove);
-    sidebarResizer.removeEventListener("pointerup", onUp);
+    sidebarResizer.removeEventListener("pointerup", cleanup);
+    sidebarResizer.removeEventListener("pointercancel", cleanup);
   };
   sidebarResizer.addEventListener("pointermove", onMove);
-  sidebarResizer.addEventListener("pointerup", onUp);
+  sidebarResizer.addEventListener("pointerup", cleanup);
+  sidebarResizer.addEventListener("pointercancel", cleanup);
 });
 
 function toggleSidebar(): void {
