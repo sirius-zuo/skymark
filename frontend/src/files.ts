@@ -13,6 +13,7 @@ export interface FileFlow {
   markDirty(): void;
   openInteractive(): Promise<string | null>; // returns loaded content or null if cancelled
   saveInteractive(content: string): Promise<boolean>; // false if cancelled
+  loadFile(absPath: string): Promise<string>;
   newDocument(): void;
 }
 
@@ -81,6 +82,13 @@ export function createFileFlow(): FileFlow {
       emit();
       for (const l of saveListeners) l(target);
       return true;
+    },
+    async loadFile(absPath) {
+      const opened = await openFile(absPath);
+      state.path = opened.path;
+      state.isDirty = false;
+      emit();
+      return opened.content;
     },
   };
 }
