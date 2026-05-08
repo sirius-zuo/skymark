@@ -119,3 +119,18 @@ fn allows_relative_image_path() {
     let html = render_html(md).unwrap();
     assert!(html.contains("src=\"attachments/x.png\""), "got: {html}");
 }
+
+#[test]
+fn strips_vbscript_url_in_link() {
+    let md = "[click](vbscript:msgbox(1))";
+    let html = render_html(md).unwrap();
+    assert!(!html.to_lowercase().contains("vbscript:"), "got: {html}");
+}
+
+#[test]
+fn strips_style_tag_in_raw_html() {
+    let md = "before\n\n<style>body { background: url(javascript:alert(1)); }</style>\n\nafter";
+    let html = render_html(md).unwrap();
+    assert!(!html.contains("<style"), "got: {html}");
+    assert!(!html.to_lowercase().contains("javascript:"), "got: {html}");
+}

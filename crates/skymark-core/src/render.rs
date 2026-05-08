@@ -9,6 +9,9 @@ pub enum RenderError {
     Internal(String),
 }
 
+/// Convert a Markdown source string to a sanitized HTML fragment.
+///
+/// Pipeline: pulldown-cmark (CommonMark + GFM extensions) -> HTML buffer -> sanitizer.
 pub fn render_html(markdown: &str) -> Result<String, RenderError> {
     if markdown.is_empty() {
         return Ok(String::new());
