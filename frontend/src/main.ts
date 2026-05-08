@@ -21,8 +21,6 @@ if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl |
   throw new Error("missing layout host elements");
 }
 
-// After the guard above, these are all non-null. Reassign with asserted types
-// so TypeScript tracks them as non-null inside functions defined later.
 const sidebar = sidebarEl as HTMLElement;
 const paletteOverlay = paletteOverlayEl as HTMLElement;
 const title = titleEl as HTMLElement;
@@ -64,11 +62,9 @@ window.addEventListener("keydown", (e) => {
 
   if (e.key === "o" || e.key === "O") {
     if (e.shiftKey) {
-      // Cmd+Shift+O — open vault folder
       e.preventDefault();
       void openVault();
     } else {
-      // Cmd+O — open single file
       e.preventDefault();
       void (async () => {
         const content = await files.openInteractive();
@@ -87,11 +83,9 @@ window.addEventListener("keydown", (e) => {
     preview.update("");
     files.newDocument();
   } else if ((e.key === "p" || e.key === "P") && vault.root) {
-    // Cmd+P — palette (vault mode only)
     e.preventDefault();
     palette.show(vault.files, (file) => { void openVaultFile(file); });
   } else if (e.key === "\\" || e.key === "|") {
-    // Cmd+\ — toggle sidebar
     if (vault.root) {
       e.preventDefault();
       toggleSidebar();
@@ -109,7 +103,7 @@ async function openVault(): Promise<void> {
   panes.classList.add("vault-mode");
   tree.render(vault.files, null);
 
-  // Auto-open: prefer index.md or README.md at root, else first file.
+  // Auto-open: prefer index.md or README.md, else first file.
   const autoFile =
     vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ??
     vault.files[0];
