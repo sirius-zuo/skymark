@@ -128,6 +128,7 @@ async function openVaultFile(file: VaultFile): Promise<void> {
 
   const content = await files.loadFile(file.abs_path);
   editor.setValue(content);
+  files.clearDirty();
   preview.update(content);
   tree.setActive(file.abs_path);
   updateTitlebar(file.abs_path);

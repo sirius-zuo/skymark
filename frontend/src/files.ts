@@ -11,6 +11,7 @@ export interface FileFlow {
   onStateChange(listener: (s: DocumentState) => void): void;
   onAfterSave(listener: (path: string) => void): void;  // NEW
   markDirty(): void;
+  clearDirty(): void;
   openInteractive(): Promise<string | null>; // returns loaded content or null if cancelled
   saveInteractive(content: string): Promise<boolean>; // false if cancelled
   loadFile(absPath: string): Promise<string>;
@@ -37,6 +38,12 @@ export function createFileFlow(): FileFlow {
     markDirty() {
       if (!state.isDirty) {
         state.isDirty = true;
+        emit();
+      }
+    },
+    clearDirty() {
+      if (state.isDirty) {
+        state.isDirty = false;
         emit();
       }
     },

@@ -80,6 +80,7 @@ export function createTree(
 
   return {
     render(files, activeAbsPath) {
+      collapsed.clear();
       currentFiles = files;
       currentActive = activeAbsPath;
       rerender();

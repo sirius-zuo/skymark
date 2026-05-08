@@ -13,7 +13,6 @@ export interface VaultHandle {
   readonly root: string | null;
   readonly files: VaultFile[];
   open(): Promise<boolean>;
-  filter(query: string): VaultFile[];
 }
 
 export function createVaultHandle(): VaultHandle {
@@ -40,20 +39,5 @@ export function createVaultHandle(): VaultHandle {
       }
     },
 
-    filter(query) {
-      if (!query) return files.slice(0, 50);
-      const q = query.toLowerCase();
-      return files
-        .filter(f => subsequenceMatch(f.rel_path.toLowerCase(), q))
-        .slice(0, 50);
-    },
   };
-}
-
-function subsequenceMatch(text: string, query: string): boolean {
-  let qi = 0;
-  for (let i = 0; i < text.length && qi < query.length; i++) {
-    if (text[i] === query[qi]) qi++;
-  }
-  return qi === query.length;
 }
