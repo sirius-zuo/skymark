@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Review — Skymark</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    nav {
+      width: 220px;
+      min-width: 220px;
+      background: #fff;
+      border-right: 1px solid #e5e5ea;
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    nav h2 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 1rem;
+    }
+
+    nav a {
+      display: block;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      color: #3a3a3c;
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      transition: background 0.15s;
+    }
+
+    nav a:hover { background: #f2f2f7; }
+
+    main {
+      flex: 1;
+      padding: 2.5rem 3rem;
+      max-width: 960px;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #e5e5ea;
+    }
+
+    header h1 { font-size: 1.75rem; font-weight: 700; }
+    header p { margin-top: 0.5rem; color: #6e6e73; font-size: 0.95rem; }
+    header .meta { margin-top: 0.75rem; font-size: 0.8rem; color: #8e8e93; }
+
+    section { margin-bottom: 3rem; scroll-margin-top: 2rem; }
+
+    section h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e5e5ea;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .card p { color: #3a3a3c; font-size: 0.9rem; }
+
+    .diagram-card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .diagram-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .diagram-desc { color: #6e6e73; font-size: 0.85rem; margin-bottom: 1rem; }
+    .mermaid { min-height: 80px; }
+
+    .findings { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .finding {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      padding: 0.875rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .finding.strength { background: #f0faf4; border-left: 3px solid #30d158; }
+    .finding.concern  { background: #fffbf0; border-left: 3px solid #ff9f0a; }
+    .finding.risk     { background: #fff5f5; border-left: 3px solid #ff3b30; }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .badge-strength { background: #30d158; color: #fff; }
+    .badge-concern  { background: #ff9f0a; color: #fff; }
+    .badge-risk     { background: #ff3b30; color: #fff; }
+
+    .finding-text strong { display: block; margin-bottom: 0.2rem; }
+    .finding-text p { color: #3a3a3c; }
+
+    .recommendations ol { padding-left: 1.5rem; }
+    .recommendations li { margin-bottom: 0.75rem; color: #3a3a3c; font-size: 0.9rem; }
+    .recommendations li strong { color: #1d1d1f; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h2>Architecture Review</h2>
+    <a href="#summary">Executive Summary</a>
+    <a href="#diagrams">Diagrams</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#security">Security</a>
+    <a href="#scalability">Scalability</a>
+    <a href="#reliability">Reliability</a>
+    <a href="#recommendations">Recommendations</a>
+  </nav>
+
+  <main>
+    <header>
+      <h1>Skymark Architecture Review</h1>
+      <p>Cross-platform Tauri 2 desktop Markdown editor with a pure-Rust core that also targets WASM for a future web app.</p>
+      <p class="meta">Generated 2026-05-07 · Design Review</p>
+    </header>
+
+    <section id="summary">
+      <h2>Executive Summary</h2>
+      <div class="card">
+        <p>Skymark is a fast, smart, lightweight Markdown editor built as a Tauri 2 desktop app on macOS, Linux, and Windows, with a pure-Rust <code>skymark-core</code> crate that also compiles to <code>wasm32-unknown-unknown</code> to keep a future web-app path open. The architecture is well-partitioned (core / host / frontend), enforces its layering invariant in CI, and uses a single canonical Markdown→HTML pipeline shared between live preview and HTML export. The most material gaps are non-functional: webview content security and untrusted-markdown sanitization, an unspecified save/auto-save/crash-recovery model, and a few under-specified contracts (AST↔DOM source-mapping, fuzzy-search index lifecycle, render cancellation).</p>
+      </div>
+    </section>
+
+    <section id="diagrams">
+      <h2>Architecture Diagrams</h2>
+
+      <div class="diagram-card">
+        <h3>System Context</h3>
+        <p class="diagram-desc">Skymark as a black box and the systems it interacts with — local file system, the OS-provided webview, and the deferred Pandoc + Web hosts.</p>
+        <div class="mermaid">
+graph TB
+  User(["User"]) --> Skymark["Skymark Desktop App"]
+  Skymark <--> FS[("File system: vault, files, attachments")]
+  Skymark --> Webview["OS Webview: WebKit / WebView2 / WebKitGTK"]
+  Skymark -.->|v1.1| Pandoc["Pandoc binary (sidecar)"]
+  Skymark -.->|future| WebApp["Skymark Web App (browser host)"]
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Component Diagram</h3>
+        <p class="diagram-desc">Major internal components grouped by host: TypeScript frontend, Tauri-resident <code>skymark-app</code>, and the pure-Rust <code>skymark-core</code> crate.</p>
+        <div class="mermaid">
+graph LR
+  subgraph Frontend ["Frontend (TypeScript)"]
+    CM["CodeMirror 6 Editor"]
+    Preview["Preview Pane"]
+    KaTeX["KaTeX"]
+    Mer["Mermaid"]
+    Prism["Prism"]
+    CM --- Preview
+    Preview --- KaTeX
+    Preview --- Mer
+    Preview --- Prism
+  end
+  subgraph App ["skymark-app (Rust + Tauri 2)"]
+    Cmds["Tauri Commands"]
+    Watcher["Vault Watcher (notify)"]
+    Settings["Settings I/O"]
+    PdfExp["WebviewPdfExporter"]
+  end
+  subgraph Core ["skymark-core (Rust: native + wasm32)"]
+    Parser["Markdown Parser"]
+    AST["MarkdownAst"]
+    Smart["Smart-Edit Primitives"]
+    Outline["Outline + Link Extraction"]
+    Reg["ConverterRegistry"]
+    Html["HtmlExporter"]
+    Docx["DocxRsExporter"]
+    Parser --> AST
+    AST --> Smart
+    AST --> Outline
+    Reg --> Html
+    Reg --> Docx
+  end
+  Frontend -->|invoke| Cmds
+  Cmds --> Parser
+  Cmds --> Reg
+  Cmds --> Watcher
+  Cmds --> Settings
+  PdfExp -.registers into.-> Reg
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Application Diagram (Multi-Host)</h3>
+        <p class="diagram-desc">How the same <code>skymark-core</code> crate underpins both the v1 desktop host and the future web host, swapping only the shell layer.</p>
+        <div class="mermaid">
+graph TB
+  subgraph DesktopHost ["Desktop Host (v1)"]
+    DesktopFrontend["Frontend: TS + CodeMirror"]
+    SkymarkApp["skymark-app: Tauri 2 backend"]
+    CoreNative["skymark-core (native lib)"]
+    DesktopFrontend -->|Tauri invoke| SkymarkApp
+    SkymarkApp --> CoreNative
+  end
+  subgraph WebHost ["Web Host (future)"]
+    WebFrontend["Frontend: TS + CodeMirror (same code)"]
+    SkymarkWeb["skymark-web: thin browser shim"]
+    CoreWasm["skymark-core (wasm32)"]
+    WebFrontend -->|JS bindings| SkymarkWeb
+    SkymarkWeb --> CoreWasm
+  end
+  CoreShared(["skymark-core source: pure Rust, two compile targets"])
+  CoreNative -.same crate.- CoreShared
+  CoreWasm -.same crate.- CoreShared
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Sequence — Keystroke to Preview</h3>
+        <p class="diagram-desc">The performance-critical path. Debounce, parse, AST diff, dirty-block DOM swap, and dirty-block-only KaTeX/Mermaid/Prism enhancement; in-flight stale renders cancelled.</p>
+        <div class="mermaid">
+sequenceDiagram
+  actor User
+  participant CM as CodeMirror 6
+  participant FE as Preview Controller
+  participant App as skymark-app
+  participant Core as skymark-core
+  participant KMP as KaTeX/Mermaid/Prism
+
+  User->>CM: keystroke
+  CM->>FE: change event
+  FE->>FE: debounce 50ms
+  FE->>App: invoke("render", text, prev_block_ids)
+  App->>Core: parse(text) -> AST
+  Core->>Core: diff vs previous AST blocks
+  Core-->>App: html_blocks + source_lines + dirty_ids
+  App-->>FE: render result
+  FE->>FE: replace only dirty DOM blocks
+  FE->>KMP: enhance dirty blocks only
+  KMP-->>FE: enhanced DOM
+  FE-->>User: updated preview
+  Note over FE,App: Stale renders cancelled when a newer request arrives mid-flight
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Deployment — CI Matrix to Installers</h3>
+        <p class="diagram-desc">Single source repo fans out across a GitHub Actions matrix to per-platform installers; the WASM build gate runs on every PR to guard the web-app path.</p>
+        <div class="mermaid">
+graph LR
+  Src["Source repo: skymark-core / skymark-app / frontend"]
+  subgraph CI ["GitHub Actions matrix"]
+    Mac["macOS runner (universal2)"]
+    Linux64["Linux runner x86_64"]
+    LinuxArm["Linux runner aarch64"]
+    Win["Windows runner x86_64"]
+    WasmCheck["wasm32 build gate"]
+  end
+  Dmg[".dmg signed + notarized"]
+  Deb64[".deb / .rpm / AppImage x64"]
+  DebArm[".deb / .rpm / AppImage arm64"]
+  Msi[".msi"]
+  Src --> Mac --> Dmg
+  Src --> Linux64 --> Deb64
+  Src --> LinuxArm --> DebArm
+  Src --> Win --> Msi
+  Src --> WasmCheck
+  WasmCheck -.guards web path.-> Src
+        </div>
+      </div>
+
+    </section>
+
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Separation of Concerns</strong>
+            <p>Three cleanly partitioned hosts: <code>skymark-core</code> (logic, no I/O, no UI), <code>skymark-app</code> (Tauri-resident I/O and host APIs), <code>frontend</code> (presentation). The layering invariant — core has zero Tauri/JS deps — is explicit and CI-enforced via the <code>wasm32-unknown-unknown</code> build gate on every PR. That gate is unusually strong: the design refuses to drift architecturally without breaking CI.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Hexagonal / Ports &amp; Adapters</strong>
+            <p>The <code>FormatConverter</code> trait is a textbook port. Built-in adapters (HtmlExporter, DocxRsExporter) live in core; host-only adapters (WebviewPdfExporter) live in <code>skymark-app</code> and register into the same <code>ConverterRegistry</code>. The trait's bidirectional shape means import providers slot in symmetrically without churn.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Cohesion: single canonical render pipeline</strong>
+            <p>The live preview and the HTML exporter both call <code>skymark-core::render_html</code>. Preview and export cannot drift — a high-cohesion choice that prevents a class of "looks right in preview, wrong in export" bugs that plague Markdown editors.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Source-map contract underspecified</strong>
+            <p>Diff rendering depends on a stable mapping from AST blocks to DOM elements; scroll sync depends on per-block source-line ranges. The spec describes both but does not pin down the carrier of identity (block hash? structural path? source-range tuple?), how identity survives reordering, or how the frontend resolves cursor-line to a DOM block. This boundary is the kind that quietly produces drift and edge cases later.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Smart-paste image path crosses a boundary the diagram doesn't show</strong>
+            <p>The frontend cannot write files directly under Tauri 2 without an exposed command. Saving a pasted image into <code>.attachments/</code> implicitly requires a backend command that the spec doesn't enumerate. Adding an explicit "save attachment, return relative path" Tauri command keeps the file-I/O port clean and prevents the frontend from accreting platform-specific code.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="security">
+      <h2>Security</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Local-first, no network surface in v1</strong>
+            <p>No AuthN/AuthZ, no remote endpoints, no shared state. The OWASP attack surface collapses to local file-system access and webview content handling.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>Untrusted Markdown → preview XSS</strong>
+            <p>CommonMark allows raw HTML pass-through by default. Markdown files arrive from arbitrary sources (paste, import, synced folder). If the preview renders raw HTML or executes inline scripts, a malicious file gains JavaScript execution inside a webview that can call Tauri commands — exposing the file system. The spec does not name a sanitizer or a Content-Security-Policy. Required v1 controls: an HTML sanitizer (e.g., <code>ammonia</code>) at the core boundary, and a strict CSP on the preview frame disallowing inline scripts and remote resources except the explicit KaTeX/Mermaid/Prism assets.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Tauri 2 capabilities not enumerated</strong>
+            <p>Tauri 2's security model relies on per-window capability files declaring exactly which commands and fs paths the frontend may access. Default-permissive misconfigurations are a common source of Tauri vulnerabilities. The spec should commit to an allowlisted command set and dynamic fs-scope rooted at the active vault (and the app config dir, and a temp scratch path) — not the whole disk.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Smart-paste image input validation</strong>
+            <p>Writing arbitrary clipboard image data to disk under a hash-named path needs explicit defenses: extension allowlist (png/jpg/gif/webp/svg-with-care), magic-byte sniffing to confirm the type matches the extension, a size cap, and SVG handling that strips embedded scripts (or refuses SVG entirely). Without these, a crafted clipboard payload becomes a write-anywhere primitive.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>v1.1 Pandoc download supply-chain integrity</strong>
+            <p>Architectured-not-shipped, but worth pinning now: any "prompts a one-time download" of Pandoc must require HTTPS + checksum/signature verification of the binary against a hardcoded expected hash per platform/version. Otherwise it's a download-and-execute vector. Note now so v1.1 inherits the requirement.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="scalability">
+      <h2>Scalability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Explicit, CI-enforced performance budgets</strong>
+            <p>The 50ms preview budget, 1.5s cold start, and 10k-word fixture are baked into CI as a perf test. That's the most disciplined scaling guardrail a desktop editor can have — performance regressions are caught at PR time, not at user time.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Diff rendering + lazy module loading</strong>
+            <p>Per-block diff rendering keeps the keystroke loop sub-budget on large documents. Lazy-loading Mermaid and Prism language packs keeps cold start light when their features are unused.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Render-pipeline cancellation/coalescing not specified</strong>
+            <p>If a single render call exceeds the debounce window (large paste, deep nested lists, pathological math), a newer keystroke can arrive while an older render is in flight. Without a cancel-stale / coalesce-latest rule, the UI can apply older-than-current results. Standard mitigation: tag each invoke with a monotonic id; the controller commits only the latest id.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Fuzzy-search index lifecycle underspecified</strong>
+            <p>Settings caps index size, but the spec does not state when the index is built (eager on vault open, incremental on file events, persisted across sessions), the eviction policy at the cap, or the user-visible behavior when a vault exceeds it. For vaults of 5k+ files this is the difference between "instant search" and "two-second hang on first search."</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Vault file-watcher fan-out</strong>
+            <p>Watching a large vault (10k+ files) on macOS can hit FSEvents thresholds and burn battery; on Linux, inotify watch limits apply. The spec mentions <code>notify</code> but doesn't address debouncing, batching, or graceful degradation when watcher capacity is exhausted. Add a debounce window (e.g., 200ms) and a "watch root, not all files" strategy where the platform supports it.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Documents above ~50k words</strong>
+            <p>Spec acknowledges this as out of scope. Acceptable disclosure for v1, but the diff-render heuristic is the limiter; a virtualized preview is the v1.1 escape hatch worth flagging now.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="reliability">
+      <h2>Reliability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>External-edit handling defined</strong>
+            <p>The file watcher → prompt-or-merge flow addresses a real reliability concern for desktop editors (silent overwrite of user changes). Most editors get this wrong; calling it out in the design is a strength.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Golden-file conversion tests</strong>
+            <p>Each converter has golden-file regression tests (with canonical XML diff for DOCX). Export fidelity is regression-protected at PR time — a strong reliability commitment.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>Save / auto-save / crash recovery not specified</strong>
+            <p>The spec mentions "passive scan on save" and "save settings," but never names the save model: explicit <code>cmd-S</code> only? auto-save on idle? on focus loss? What persists when the OS kills the app mid-edit? For an editor, losing 10 minutes of typing is the canonical failure users blame the product for. Recommended: periodic write-to-temp for unsaved buffers, with recovery on next launch, plus a clear save-on-close prompt for dirty buffers.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>DOCX out-of-subset UX undefined</strong>
+            <p>The DOCX exporter ships a defined subset; the spec says the export dialog "surfaces this," but does not specify whether out-of-subset content (footnotes, math) blocks export, warns and proceeds with loss, or silently drops. Pick one; "warn-and-proceed-with-explicit-list" is the user-respecting default.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Webview-PDF cross-platform fidelity</strong>
+            <p>Print-to-PDF output depends on the platform webview (WebKit / WebView2 / WebKitGTK). Pagination, font rendering, and CSS support differ. Acceptable for v1 but worth disclosing in docs and golden-testing per platform — otherwise user reports of "PDF differs between Mac and Windows" become support load.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="recommendations" class="recommendations">
+      <h2>Recommendations</h2>
+      <div class="card">
+        <ol>
+          <li><strong>Pin webview content security in v1</strong> — choose an HTML sanitizer at the core boundary (e.g., <code>ammonia</code>), decide whether raw HTML in Markdown is allowed (default: stripped), and apply a strict Content-Security-Policy on the preview frame disallowing inline scripts and remote loads outside an explicit allowlist.</li>
+          <li><strong>Specify the save / auto-save / crash-recovery model</strong> — add a Persistence section: when buffers are written to disk, where unsaved drafts land between writes, and the recovery flow on next launch.</li>
+          <li><strong>Lock down Tauri capabilities and fs scope</strong> — enumerate the exact command allowlist; scope fs writes to the active vault, app config dir, and a controlled scratch path; document the dynamic-scope mechanism so vault-switch updates capabilities atomically.</li>
+          <li><strong>Pin the AST↔DOM source-map contract</strong> — name the carrier of block identity, define how identity survives reorders, specify how cursor-line resolves to a DOM block for scroll sync.</li>
+          <li><strong>Add render cancellation / coalescing</strong> — monotonic-id tagging on invoke; the preview controller commits only the most recent id and discards stale results.</li>
+          <li><strong>Define the fuzzy-search index lifecycle</strong> — build strategy (eager / incremental), persistence, eviction at the cap, and degraded-mode behavior when a vault exceeds the cap.</li>
+          <li><strong>Specify file-watcher debouncing and degraded mode</strong> — debounce window (suggest 200ms), watch-root strategy where supported, and behavior when platform watcher capacity is exhausted.</li>
+          <li><strong>Add an explicit "save attachment" Tauri command</strong> — keeps the smart-paste image path through a single audited port; include extension allowlist, magic-byte sniff, size cap, and SVG-script-strip (or SVG-refuse).</li>
+          <li><strong>Define DOCX out-of-subset UX</strong> — warn-and-proceed with an explicit list of dropped/lossy elements is the recommended default; commit to it in the spec so users aren't surprised.</li>
+          <li><strong>Pre-commit v1.1 Pandoc supply-chain controls</strong> — HTTPS + per-platform hardcoded checksum verification before any downloaded binary is executed. Note in the spec now so v1.1 inherits the constraint.</li>
+        </ol>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
