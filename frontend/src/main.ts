@@ -87,20 +87,23 @@ void (async () => {
     preview.update(content);
     showToast(`Recovered unsaved changes to "${label}"`);
   }
-})();
+})().catch((err) => console.error("[skymark] draft recovery failed:", err));
 
 // Save-on-close: intercept window close when dirty.
 if (isTauri()) {
   void (async () => {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     const win = getCurrentWindow();
+    let closing = false;
     await win.onCloseRequested(async (event: { preventDefault(): void }) => {
       if (!files.state.isDirty) return;
+      if (closing) { event.preventDefault(); return; }
+      closing = true;
       event.preventDefault();
       const saved = await files.saveInteractive(editor.getValue());
       if (!saved) {
         const discard = confirm("Discard unsaved changes and close?");
-        if (!discard) return;
+        if (!discard) { closing = false; return; }
       }
       await win.destroy();
     });
