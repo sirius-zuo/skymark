@@ -15,7 +15,6 @@ export interface EditorHandle {
 
 export type DocChangeListener = (text: string) => void;
 
-/** Wrap the current selection with prefix+suffix, or insert prefix+suffix at cursor. */
 function wrapSelection(view: EditorView, prefix: string, suffix: string): boolean {
   const { state } = view;
   const changes = state.changeByRange((range) => {
@@ -31,11 +30,10 @@ function wrapSelection(view: EditorView, prefix: string, suffix: string): boolea
       range: EditorSelection.range(range.from + prefix.length, range.to + prefix.length),
     };
   });
-  view.dispatch(view.state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+  view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
   return true;
 }
 
-/** Enter handler: continue list or blockquote; cancel on empty item. */
 function listContinuationEnter(view: EditorView): boolean {
   const { state } = view;
   const sel = state.selection.main;
@@ -117,6 +115,7 @@ export function createEditor(parent: HTMLElement, onChange: DocChangeListener): 
               insert = `[${selected}](${url})`;
               anchor = sel.from + insert.length;
             }
+            event.preventDefault();
             view.dispatch(
               state.update({
                 changes: { from: sel.from, to: sel.to, insert },
@@ -124,7 +123,6 @@ export function createEditor(parent: HTMLElement, onChange: DocChangeListener): 
                 userEvent: "input.paste",
               })
             );
-            event.preventDefault();
             return true;
           },
         }),
