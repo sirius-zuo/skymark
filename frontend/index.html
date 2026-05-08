@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skymark</title>
+    <link rel="stylesheet" href="./src/styles/tokens.css" />
+    <link rel="stylesheet" href="./src/styles/app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="titlebar">
+        <span class="doc-title" id="doc-title">Untitled</span>
+        <span class="dirty-indicator" id="dirty-indicator" hidden>●</span>
+      </header>
+      <main class="panes">
+        <section class="pane editor-pane" id="editor"></section>
+        <section class="pane preview-pane" id="preview"></section>
+      </main>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

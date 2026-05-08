@@ -1,0 +1,82 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #app { height: 100%; margin: 0; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { display: flex; flex-direction: column; }
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--titlebar-height);
+  padding: 0 var(--space-4);
+  border-bottom: var(--pane-divider);
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.titlebar .doc-title { font-weight: 500; color: var(--color-text); }
+.titlebar .dirty-indicator { color: var(--color-accent); }
+
+.panes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+}
+
+.pane { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+.editor-pane { border-right: var(--pane-divider); background: var(--color-surface); }
+.editor-pane .cm-editor { flex: 1; height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
+.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6); }
+
+.preview-pane { background: var(--color-surface); overflow-y: auto; padding: var(--space-5) var(--space-6); }
+.preview-pane .preview-content {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: var(--line-height-preview);
+}
+
+.preview-content h1, .preview-content h2, .preview-content h3,
+.preview-content h4, .preview-content h5, .preview-content h6 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
+}
+.preview-content h1 { font-size: 1.8rem; }
+.preview-content h2 { font-size: 1.45rem; }
+.preview-content h3 { font-size: 1.2rem; }
+.preview-content p, .preview-content ul, .preview-content ol,
+.preview-content blockquote, .preview-content pre, .preview-content table { margin: 0 0 1em 0; }
+
+.preview-content a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.preview-content code { font-family: var(--font-mono); font-size: 0.92em; }
+.preview-content pre {
+  background: #f4f4f5;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.preview-content table { border-collapse: collapse; width: 100%; }
+.preview-content th, .preview-content td { border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); }
+.preview-content blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--space-4);
+  color: var(--color-text-muted);
+}
