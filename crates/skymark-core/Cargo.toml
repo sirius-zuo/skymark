@@ -1,0 +1,18 @@
+[package]
+name = "skymark-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Skymark markdown engine: parser, AST, render pipeline, format conversion"
+
+[lib]
+name = "skymark_core"
+path = "src/lib.rs"
+
+[dependencies]
+pulldown-cmark.workspace = true
+ammonia.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1"
