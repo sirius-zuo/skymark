@@ -7,7 +7,8 @@ export interface TreeHandle {
 
 export function createTree(
   container: HTMLElement,
-  onSelect: (file: VaultFile) => void
+  onSelect: (file: VaultFile) => void,
+  getBrokenFiles?: () => Set<string>,
 ): TreeHandle {
   const collapsed = new Set<string>();
   let currentFiles: VaultFile[] = [];
@@ -29,15 +30,9 @@ export function createTree(
     }
 
     const ul = document.createElement("ul");
+    for (const f of rootFiles) ul.appendChild(makeFileItem(f));
 
-    for (const f of rootFiles) {
-      ul.appendChild(makeFileItem(f));
-    }
-
-    const sortedDirs = [...dirMap.entries()].sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
-
+    const sortedDirs = [...dirMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     for (const [dir, dirFiles] of sortedDirs) {
       const li = document.createElement("li");
       const toggle = document.createElement("span");
@@ -45,8 +40,7 @@ export function createTree(
       const isCollapsed = collapsed.has(dir);
       toggle.textContent = (isCollapsed ? "▶ " : "▼ ") + dir;
       toggle.addEventListener("click", () => {
-        if (collapsed.has(dir)) collapsed.delete(dir);
-        else collapsed.add(dir);
+        if (collapsed.has(dir)) collapsed.delete(dir); else collapsed.add(dir);
         rerender();
       });
       li.appendChild(toggle);
@@ -54,12 +48,9 @@ export function createTree(
       if (!isCollapsed) {
         const subUl = document.createElement("ul");
         subUl.style.paddingLeft = "12px";
-        for (const f of dirFiles) {
-          subUl.appendChild(makeFileItem(f));
-        }
+        for (const f of dirFiles) subUl.appendChild(makeFileItem(f));
         li.appendChild(subUl);
       }
-
       ul.appendChild(li);
     }
 
@@ -75,6 +66,15 @@ export function createTree(
     span.title = f.rel_path;
     span.addEventListener("click", () => onSelect(f));
     li.appendChild(span);
+
+    if (getBrokenFiles && getBrokenFiles().has(f.abs_path)) {
+      const badge = document.createElement("span");
+      badge.className = "tree-badge-broken";
+      badge.title = "Contains broken links";
+      badge.textContent = "⚠";
+      li.appendChild(badge);
+    }
+
     return li;
   }
 
