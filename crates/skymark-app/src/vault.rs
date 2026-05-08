@@ -11,22 +11,12 @@ pub struct VaultFile {
 /// Testable scan helper. `max_files` lets tests use a small cap.
 pub fn scan_dir(root: &Path, max_files: usize) -> Result<Vec<VaultFile>, String> {
     let mut files = Vec::new();
-    collect_files(root, root, &mut files)?;
-    if files.len() > max_files {
-        return Err(format!(
-            "vault too large: {} files found (limit {max_files})",
-            files.len()
-        ));
-    }
-    files.sort_by(|a, b| {
-        a.rel_path
-            .to_ascii_lowercase()
-            .cmp(&b.rel_path.to_ascii_lowercase())
-    });
+    collect_files(root, root, &mut files, max_files)?;
+    files.sort_by_cached_key(|f| f.rel_path.to_ascii_lowercase());
     Ok(files)
 }
 
-fn collect_files(root: &Path, dir: &Path, out: &mut Vec<VaultFile>) -> Result<(), String> {
+fn collect_files(root: &Path, dir: &Path, out: &mut Vec<VaultFile>, max_files: usize) -> Result<(), String> {
     let entries = std::fs::read_dir(dir).map_err(|e| format!("read_dir {dir:?}: {e}"))?;
     for entry in entries {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -38,7 +28,7 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<VaultFile>) -> Result<()
         let path = entry.path();
         let ft = entry.file_type().map_err(|e| e.to_string())?;
         if ft.is_dir() {
-            collect_files(root, &path, out)?;
+            collect_files(root, &path, out, max_files)?;
         } else if ft.is_file() {
             let ext = path
                 .extension()
@@ -56,6 +46,11 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<VaultFile>) -> Result<()
                     rel_path: rel,
                     name: name.into_owned(),
                 });
+                if out.len() > max_files {
+                    return Err(format!(
+                        "vault too large: more than {max_files} files found"
+                    ));
+                }
             }
         }
     }
@@ -93,12 +88,14 @@ mod tests {
         fs::create_dir_all(&sub).unwrap();
         fs::write(dir.join("readme.md"), "").unwrap();
         fs::write(sub.join("intro.markdown"), "").unwrap();
+        fs::write(dir.join("notes.txt"), "").unwrap();
         fs::write(sub.join("skip.rs"), "").unwrap();
 
         let files = scan_dir(&dir, 5_000).unwrap();
-        assert_eq!(files.len(), 2);
+        assert_eq!(files.len(), 3);
         assert!(files.iter().any(|f| f.name == "readme.md"));
         assert!(files.iter().any(|f| f.name == "intro.markdown"));
+        assert!(files.iter().any(|f| f.name == "notes.txt"));
 
         fs::remove_dir_all(&dir).ok();
     }
