@@ -1,11 +1,16 @@
 import { createEditor } from "./editor";
+import { createPreview } from "./preview";
 
 const editorHost = document.getElementById("editor");
-if (!editorHost) throw new Error("missing #editor host element");
+const previewHost = document.getElementById("preview");
+if (!editorHost || !previewHost) throw new Error("missing layout host elements");
+
+const preview = createPreview(previewHost);
 
 const editor = createEditor(editorHost, (text) => {
-  // Preview wiring follows in Task 14.
-  console.debug("[skymark] doc changed:", text.length, "chars");
+  preview.update(text);
 });
 
-editor.setValue("# Welcome to Skymark\n\nStart typing in the editor on the left.\n");
+const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
+editor.setValue(initial);
+preview.update(initial);
