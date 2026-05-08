@@ -60,7 +60,8 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
     },
 
     closeTab(idx) {
-      if (entries[idx]?.isDirty) return false;
+      if (idx < 0 || idx >= entries.length) return false;
+      if (entries[idx].isDirty) return false;
       entries.splice(idx, 1);
       if (entries.length === 0) {
         activeIdx = -1;
@@ -74,7 +75,11 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
       return true;
     },
 
-    activateTab(idx) { activeIdx = idx; notify(); },
+    activateTab(idx) {
+      if (idx < 0 || idx >= entries.length) return;
+      activeIdx = idx;
+      notify();
+    },
 
     updateActive(patch) {
       if (activeIdx >= 0) Object.assign(entries[activeIdx], patch);
