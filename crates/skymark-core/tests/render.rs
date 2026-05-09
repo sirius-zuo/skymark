@@ -134,3 +134,17 @@ fn strips_style_tag_in_raw_html() {
     assert!(!html.contains("<style"), "got: {html}");
     assert!(!html.to_lowercase().contains("javascript:"), "got: {html}");
 }
+
+#[test]
+fn renders_inline_math() {
+    let html = render_html("$x^2$").unwrap();
+    assert!(html.contains("class=\"math math-inline\""), "got: {html}");
+    assert!(html.contains("x^2"), "got: {html}");
+}
+
+#[test]
+fn renders_display_math() {
+    let html = render_html("$$E=mc^2$$").unwrap();
+    assert!(html.contains("class=\"math math-display\""), "got: {html}");
+    assert!(html.contains("E=mc^2"), "got: {html}");
+}

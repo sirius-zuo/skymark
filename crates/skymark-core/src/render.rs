@@ -23,5 +23,5 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
 }
 
 fn gfm_options() -> Options {
-    Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS
+    Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_MATH
 }
