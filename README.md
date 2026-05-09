@@ -57,8 +57,9 @@ Skymark is split into three layers:
 | Phase | Focus |
 |-------|-------|
 | **Phase 1** ✅ | Core editor, live preview, open/save, security baseline, CI |
-| Phase 2 | Smart editing (auto-pair, list continuation), draft auto-save, crash recovery |
-| Phase 3 | Vault mode (folder of files), file tree sidebar, fuzzy file search |
-| Phase 4 | Math (KaTeX), Mermaid diagrams, syntax highlighting in preview |
-| Phase 5 | Export: HTML, PDF, DOCX |
-| Phase 6 | Multi-platform release packaging, auto-update |
+| **Phase 2** ✅ | Smart editing (auto-pair, list continuation), draft auto-save, crash recovery |
+| **Phase 3** ✅ | Vault mode (folder of files), file tree sidebar, fuzzy file search |
+| **Phase 4** ✅ | Multi-tab editing, file watcher, sidebar resize, broken-link detection, heading search |
+| Phase 5 | Math (KaTeX), Mermaid diagrams, syntax highlighting in preview |
+| Phase 6 | Export: HTML, PDF, DOCX |
+| Phase 7 | Multi-platform release packaging, auto-update |
