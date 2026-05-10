@@ -74,7 +74,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       }
 
       if (target) {
-        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        target.scrollIntoView({ block: "nearest", behavior: "instant" });
       } else {
         // All block markers are after the cursor line — scroll preview to top.
         host.scrollTop = 0;
