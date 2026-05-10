@@ -5,6 +5,7 @@ import { enrichMermaid } from "./enrich-mermaid";
 
 export interface PreviewHandle {
   update(text: string): void;
+  getContentEl(): HTMLElement;
 }
 
 export function createPreview(host: HTMLElement): PreviewHandle {
@@ -52,6 +53,9 @@ export function createPreview(host: HTMLElement): PreviewHandle {
         const id = inflight;
         void commit(text, id);
       }, 50);
+    },
+    getContentEl(): HTMLElement {
+      return content;
     },
   };
 }
