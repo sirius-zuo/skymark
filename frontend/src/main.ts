@@ -339,20 +339,17 @@ async function watchCurrentTabs(): Promise<void> {
 // ---- Watcher events --------------------------------------------------------
 
 if (isTauri()) {
-  void (async () => {
-    const { listen } = await import("@tauri-apps/api/event");
-    await listen<string>("file-changed", (event) => {
-      const changedPath = event.payload.replace(/\\/g, "/");
-      const tabIdx = tabs.entries.findIndex(e => e.absPath.replace(/\\/g, "/") === changedPath);
-      if (tabIdx === -1) return;
-      if (tabIdx === tabs.activeIdx) {
-        reloadBanner.hidden = false;
-      } else {
-        tabs.markExternallyModified(tabIdx);
-        rebindTabBar();
-      }
-    });
-  })();
+  void listen<string>("file-changed", (event) => {
+    const changedPath = event.payload.replace(/\\/g, "/");
+    const tabIdx = tabs.entries.findIndex(e => e.absPath.replace(/\\/g, "/") === changedPath);
+    if (tabIdx === -1) return;
+    if (tabIdx === tabs.activeIdx) {
+      reloadBanner.hidden = false;
+    } else {
+      tabs.markExternallyModified(tabIdx);
+      rebindTabBar();
+    }
+  });
 }
 
 // ---- Menu events -----------------------------------------------------------
