@@ -13,6 +13,8 @@ import { createLinkChecker } from "./links";
 import { invoke } from "@tauri-apps/api/core";
 import { initTheme, toggleTheme, onThemeChange } from "./theme";
 import { createExportDropdown } from "./export-dropdown";
+import { checkForUpdate, onUpdateAvailable } from "./update";
+import { createUpdateBanner } from "./update-banner";
 
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
@@ -29,11 +31,13 @@ const reloadDismissEl = document.getElementById("reload-dismiss") as HTMLElement
 const sidebarResizerEl = document.getElementById("sidebar-resizer") as HTMLElement | null;
 const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonElement | null;
 const exportDropdownRootEl = document.getElementById("export-dropdown-root") as HTMLElement | null;
+const updateBannerRootEl = document.getElementById("update-banner-root") as HTMLElement | null;
+const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButtonElement | null;
 
 if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl ||
     !vaultPrefixEl || !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
     !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl ||
-    !exportDropdownRootEl) {
+    !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
   throw new Error("missing layout host elements");
 }
 
@@ -50,6 +54,8 @@ const reloadDismiss = reloadDismissEl;
 const sidebarResizer = sidebarResizerEl;
 const themeToggle = themeToggleEl;
 const exportDropdownRoot = exportDropdownRootEl;
+const updateBannerRoot = updateBannerRootEl;
+const updateCheckBtn = updateCheckBtnEl;
 
 initTheme();
 themeToggle.addEventListener("click", toggleTheme);
@@ -78,6 +84,18 @@ onThemeChange(() => { preview.update(editor.getValue()); });
 
 const exportDropdown = createExportDropdown(preview.getContentEl(), () => title.textContent ?? "Untitled");
 exportDropdownRoot.appendChild(exportDropdown.el);
+const updateBanner = createUpdateBanner(updateBannerRoot);
+onUpdateAvailable(({ version }) => {
+  updateBanner.show(version);
+  updateCheckBtn.hidden = false;
+  updateCheckBtn.classList.add("has-update");
+});
+window.setTimeout(() => { void checkForUpdate(); }, 3000);
+updateCheckBtn.addEventListener("click", () => {
+  void checkForUpdate().then((info) => {
+    if (!info) showToast("You're up to date");
+  });
+});
 
 files.onStateChange((s) => {
   updateTitlebar(s.path);
