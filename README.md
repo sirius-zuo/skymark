@@ -2,18 +2,85 @@
 
 A fast, lightweight Markdown editor for the desktop. Built with Rust and Tauri 2.
 
-Two-pane layout: write Markdown on the left, see live HTML preview on the right.
+Two-pane layout: write Markdown on the left, see a live HTML preview on the right.
 
 ---
 
-## Features
+## Installation
 
-- **Live preview** — updates as you type, ~50ms debounce
-- **CommonMark + GFM** — tables, strikethrough, task lists, fenced code blocks
-- **Open / Save** — open any `.md`, `.markdown`, or `.txt` file; save with keyboard shortcuts
-- **Dirty tracking** — a `●` in the titlebar shows unsaved changes
-- **XSS-safe preview** — all HTML is sanitized before display; `<script>` tags, inline event handlers, and `javascript:` URLs are stripped at the render boundary
-- **Cross-platform** — macOS (Apple Silicon + Intel), Linux, Windows
+### Download a release (recommended)
+
+Go to the [Releases page](https://github.com/jinzuo/skymark/releases) and download the installer for your platform:
+
+| Platform | File | Notes |
+|----------|------|-------|
+| macOS (Apple Silicon + Intel) | `Skymark_x.y.z_universal.dmg` | Open and drag to Applications |
+| Linux | `skymark_x.y.z_amd64.AppImage` | `chmod +x` then run |
+| Windows | `Skymark_x.y.z_x64-setup.exe` | Run the installer |
+
+**macOS:** The app is unsigned. On first launch, right-click → Open, then click Open in the dialog.
+
+**Windows:** SmartScreen may warn about an unknown publisher. Click "More info" → "Run anyway".
+
+**Linux:** The AppImage is self-contained. No install step needed beyond making it executable:
+```bash
+chmod +x skymark_x.y.z_amd64.AppImage
+./skymark_x.y.z_amd64.AppImage
+```
+
+### Build from source
+
+See [Build from source](#build-from-source) below.
+
+---
+
+## Usage
+
+### Opening files
+
+- **Single file:** `Cmd/Ctrl + O` opens a file picker. Skymark supports `.md`, `.markdown`, and `.txt` files.
+- **Folder (Vault mode):** `Cmd/Ctrl + Shift + O` opens an entire folder as a vault. A file tree appears in the sidebar; all files are available as tabs.
+
+### Editing
+
+The left pane is a full-featured code editor ([CodeMirror 6](https://codemirror.net)) with Markdown syntax highlighting. The preview on the right updates as you type (~50ms debounce).
+
+Supported Markdown:
+- **CommonMark + GFM** — tables, strikethrough, task lists (`- [ ]`), fenced code blocks with language tags
+- **Math** — inline (`$x^2$`) and display (`$$...$$`) via [KaTeX](https://katex.org)
+- **Diagrams** — [Mermaid](https://mermaid.js.org) fenced blocks (` ```mermaid `)
+- **Syntax highlighting** in fenced code blocks (100+ languages via [highlight.js](https://highlightjs.org))
+
+### Vault mode
+
+Open a folder with `Cmd/Ctrl + Shift + O`. In vault mode:
+
+- The **sidebar** shows all Markdown files in the folder tree. Click any file to open it.
+- **Fuzzy search** (`Cmd/Ctrl + P`) searches files by name and heading across the vault.
+- **Multi-tab editing** — open multiple files at once; tabs show dirty state and external-change indicators.
+- **Broken-link detection** — wiki-style links to missing files are highlighted in the sidebar.
+- The vault and open tabs are **restored on next launch**.
+
+### Saving
+
+- `Cmd/Ctrl + S` — saves the current file. Prompts for a path if the file has never been saved.
+- A `●` in the titlebar indicates unsaved changes.
+- **Draft auto-save** — Skymark saves a draft every few seconds. If the app crashes, it offers to recover your unsaved work on next launch.
+
+### Exporting
+
+Click the **Export ▾** button in the titlebar:
+
+- **Export as HTML** — saves a standalone `.html` file with CDN-linked CSS for KaTeX and syntax highlighting. Math, diagrams, and code highlighting are baked in — no JavaScript required in the exported file.
+- **Print / Save as PDF** — triggers the OS print dialog. The editor and sidebar are hidden; only the document content prints.
+
+### Theme
+
+Click the **🌙** button in the titlebar to toggle between light and dark themes.
+
+### Auto-update
+
+Skymark checks for updates 3 seconds after launch. When a new version is available, a banner appears below the titlebar with an **Install & Restart** button. You can also click the **↑** button in the titlebar to check manually.
 
 ---
 
@@ -22,22 +89,57 @@ Two-pane layout: write Markdown on the left, see live HTML preview on the right.
 | Shortcut | Action |
 |----------|--------|
 | `Cmd/Ctrl + O` | Open file |
-| `Cmd/Ctrl + S` | Save file (prompts for path on first save) |
+| `Cmd/Ctrl + Shift + O` | Open folder (vault mode) |
+| `Cmd/Ctrl + S` | Save file |
 | `Cmd/Ctrl + N` | New document |
+| `Cmd/Ctrl + W` | Close current tab |
+| `Cmd/Ctrl + P` | Fuzzy file / heading search (vault mode) |
+| `Cmd/Ctrl + \` | Toggle sidebar (vault mode) |
 | `Cmd/Ctrl + Z` | Undo |
 | `Cmd/Ctrl + Shift + Z` | Redo |
 | `Cmd/Ctrl + F` | Find in editor |
 
 ---
 
-## Getting started
+## Build from source
 
-See [BUILD.md](BUILD.md) for prerequisites and build instructions.
+### Prerequisites
 
-**Quick start (development):**
+- [Rust](https://rustup.rs) (stable toolchain)
+- [Node.js](https://nodejs.org) 20+
+- Platform system libraries:
+  - **macOS:** Xcode Command Line Tools (`xcode-select --install`)
+  - **Linux (Ubuntu/Debian):**
+    ```bash
+    sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev \
+      libayatana-appindicator3-dev librsvg2-dev
+    ```
+  - **Windows:** [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) + WebView2 (pre-installed on Windows 10 21H2+)
+
+### Development
+
 ```bash
+git clone https://github.com/jinzuo/skymark
+cd skymark
 npm install
 npm run tauri:dev
+```
+
+The dev server starts Vite with hot-reload and opens the Tauri window. Rust code changes require a restart.
+
+### Production build
+
+```bash
+npm run tauri:build
+```
+
+Output is in `crates/skymark-app/target/release/bundle/`.
+
+### Run tests
+
+```bash
+cargo test          # Rust unit tests
+npm run build       # TypeScript type-check + Vite build
 ```
 
 ---
@@ -46,20 +148,6 @@ npm run tauri:dev
 
 Skymark is split into three layers:
 
-- **`skymark-core`** — pure Rust library. Converts Markdown to sanitized HTML using [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) and [ammonia](https://github.com/notriddle/ammonia). No Tauri dependency; compiles to `wasm32-unknown-unknown` for future web use.
-- **`skymark-app`** — Tauri 2 backend. Exposes `render`, `open_file`, and `save_file` commands. Saves files atomically (write-temp-then-rename). Deny-by-default capability model — only `dialog:allow-open` and `dialog:allow-save` are granted.
-- **Frontend** — Vite + TypeScript. [CodeMirror 6](https://codemirror.net) editor with Markdown syntax highlighting. Preview rendered via `DOMParser` + `replaceChildren` (never `innerHTML`).
-
----
-
-## Roadmap
-
-| Phase | Focus |
-|-------|-------|
-| **Phase 1** ✅ | Core editor, live preview, open/save, security baseline, CI |
-| **Phase 2** ✅ | Smart editing (auto-pair, list continuation), draft auto-save, crash recovery |
-| **Phase 3** ✅ | Vault mode (folder of files), file tree sidebar, fuzzy file search |
-| **Phase 4** ✅ | Multi-tab editing, file watcher, sidebar resize, broken-link detection, heading search |
-| **Phase 5** ✅ | Math (KaTeX), Mermaid diagrams, syntax highlighting in preview, dark/light theme |
-| **Phase 6** ✅ | Export: HTML (CDN-linked), PDF (OS print dialog) |
-| Phase 7 | Multi-platform release packaging, auto-update |
+- **`skymark-core`** — pure Rust library. Converts Markdown to sanitized HTML using [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) and [ammonia](https://github.com/notriddle/ammonia). No Tauri dependency.
+- **`skymark-app`** — Tauri 2 backend. Exposes commands for rendering, file I/O, and export. Saves files atomically (write-temp-then-rename). Deny-by-default capability model.
+- **Frontend** — Vite + TypeScript. CodeMirror 6 editor, preview rendered via `DOMParser` + `replaceChildren` (never `innerHTML`).
