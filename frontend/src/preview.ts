@@ -1,6 +1,7 @@
 import { renderMarkdown } from "./api";
 import { enrichHighlight } from "./enrich-highlight";
 import { enrichMath } from "./enrich-math";
+import { enrichMermaid } from "./enrich-mermaid";
 
 export interface PreviewHandle {
   update(text: string): void;
@@ -27,6 +28,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
     content.replaceChildren(...adopted);
     await enrichHighlight(content);
     await enrichMath(content);
+    await enrichMermaid(content);
   }
 
   async function commit(text: string, requestId: number): Promise<void> {

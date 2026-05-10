@@ -40,6 +40,10 @@ body {
 }
 .theme-toggle-btn:hover { color: var(--color-text); }
 .cm-math { color: var(--color-accent); font-style: italic; }
+.mermaid-diagram { margin: 0 0 1em 0; overflow-x: auto; text-align: center; }
+.mermaid-diagram svg { max-width: 100%; height: auto; }
+.mermaid-error { border: 1px solid var(--color-accent); border-radius: 6px; }
+.mermaid-error p { color: var(--color-accent); font-size: 0.85em; padding: var(--space-2) var(--space-3); margin: 0; }
 
 .panes {
   flex: 1;
