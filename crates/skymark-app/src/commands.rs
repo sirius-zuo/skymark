@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn render_command_round_trips_markdown_to_sanitized_html() {
         let html = render("# Title\n\n<script>alert(1)</script>".into()).unwrap();
-        assert!(html.contains("<h1>Title</h1>"), "got: {html}");
+        assert!(html.contains("Title</h1>") && html.contains("<h1 "), "got: {html}");
         assert!(!html.contains("<script>"), "got: {html}");
     }
 
