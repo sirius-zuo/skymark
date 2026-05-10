@@ -125,6 +125,46 @@ editor.setValue(initial);
 preview.update(initial);
 files.clearDirty();
 
+// ---- File action helpers ----------------------------------------------------
+
+async function openFileInteractive(): Promise<void> {
+  const content = await files.openInteractive();
+  if (content === null) return;
+  editor.setValue(content);
+  preview.update(content);
+  files.clearDirty();
+  if (tabs.active && files.state.path) {
+    tabs.updateActive({ absPath: files.state.path, isDirty: false });
+    rebindTabBar();
+  }
+}
+
+function startNewDocument(): void {
+  if (tabs.active) {
+    const prevPath = tabs.active.absPath;
+    headings.remove(prevPath);
+    links.remove(prevPath);
+    tabs.forceCloseTab(tabs.activeIdx);
+    const next = tabs.active;
+    if (next) {
+      editor.setValue(next.content);
+      preview.update(next.content);
+      files.clearDirty();
+      updateTitlebar(next.absPath);
+      tree.setActive(next.absPath);
+      reloadBanner.hidden = !next.externallyModified;
+      rebindTabBar();
+      void watchCurrentTabs();
+      return;
+    }
+    reloadBanner.hidden = true;
+    rebindTabBar();
+  }
+  editor.setValue("");
+  preview.update("");
+  files.newDocument();
+}
+
 // ---- Keyboard shortcuts ----------------------------------------------------
 
 window.addEventListener("keydown", (e) => {
@@ -137,19 +177,14 @@ window.addEventListener("keydown", (e) => {
       void openVault();
     } else {
       e.preventDefault();
-      void (async () => {
-        const content = await files.openInteractive();
-        if (content !== null) { editor.setValue(content); preview.update(content); }
-      })();
+      void openFileInteractive();
     }
   } else if (e.key === "s" || e.key === "S") {
     e.preventDefault();
     void files.saveInteractive(editor.getValue());
   } else if (e.key === "n" || e.key === "N") {
     e.preventDefault();
-    editor.setValue("");
-    preview.update("");
-    files.newDocument();
+    startNewDocument();
   } else if (e.key === "w" || e.key === "W") {
     if (tabs.active) { e.preventDefault(); void handleCloseTab(tabs.activeIdx); }
   } else if ((e.key === "p" || e.key === "P") && vault.root) {
@@ -358,14 +393,10 @@ if (isTauri()) {
   void listen<string>("skymark://menu", ({ payload }) => {
     switch (payload) {
       case "new-file":
-        editor.setValue("");
-        preview.update("");
-        files.newDocument();
+        startNewDocument();
         break;
       case "open-file":
-        void files.openInteractive().then((content) => {
-          if (content !== null) { editor.setValue(content); preview.update(content); }
-        });
+        void openFileInteractive();
         break;
       case "open-folder":
         void openVault();

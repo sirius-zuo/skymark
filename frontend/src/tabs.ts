@@ -15,7 +15,7 @@ export interface TabHandle {
   closeTab(idx: number): boolean;
   forceCloseTab(idx: number): void;
   activateTab(idx: number): void;
-  updateActive(patch: Partial<Pick<TabEntry, 'content' | 'isDirty' | 'cursorPos' | 'scrollTop' | 'externallyModified'>>): void;
+  updateActive(patch: Partial<Pick<TabEntry, 'absPath' | 'content' | 'isDirty' | 'cursorPos' | 'scrollTop' | 'externallyModified'>>): void;
   markExternallyModified(idx: number): void;
   clearAll(): void;
   onActiveChange(listener: (entry: TabEntry | null) => void): void;
