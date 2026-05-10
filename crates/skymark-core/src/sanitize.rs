@@ -44,6 +44,7 @@ fn builder() -> Builder<'static> {
     tag_attrs.insert("td", ["align"].into_iter().collect());
     tag_attrs.insert("code", ["class"].into_iter().collect());
     tag_attrs.insert("span", ["class"].into_iter().collect());
+    tag_attrs.insert("ol", ["start"].into_iter().collect());
     b.tag_attributes(tag_attrs);
 
     let generic_attrs: HashSet<&'static str> = ["data-line"].into_iter().collect();

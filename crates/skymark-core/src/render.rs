@@ -74,7 +74,8 @@ fn block_open_tag(tag: &Tag, line: usize) -> String {
             if lang.is_empty() {
                 format!("<pre data-line=\"{line}\"><code>")
             } else {
-                format!("<pre data-line=\"{line}\"><code class=\"language-{lang}\">")
+                let safe_lang = html_escape(lang);
+                format!("<pre data-line=\"{line}\"><code class=\"language-{safe_lang}\">")
             }
         }
         Tag::BlockQuote(_) => format!("<blockquote data-line=\"{line}\">"),
@@ -84,6 +85,13 @@ fn block_open_tag(tag: &Tag, line: usize) -> String {
         Tag::Table(_) => format!("<table data-line=\"{line}\">"),
         _ => unreachable!("block_open_tag called with non-block tag"),
     }
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 #[cfg(test)]
