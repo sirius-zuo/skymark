@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Phase 1 capability set: only the dialog plugin's open and save permissions.",
+  "description": "Default capability set: dialog, updater, and process plugin permissions.",
   "windows": ["main"],
   "permissions": [
     "core:default",
