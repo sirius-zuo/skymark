@@ -50,7 +50,7 @@ pub fn export_file(path: String, content: String) -> Result<(), String> {
         return Err("path must be absolute".into());
     }
     match p.extension().and_then(|e| e.to_str()) {
-        Some("html") => {}
+        Some(ext) if ext.eq_ignore_ascii_case("html") => {}
         _ => return Err("only .html extension is supported for export".into()),
     }
     let parent = p.parent().ok_or_else(|| "path has no parent directory".to_string())?;
