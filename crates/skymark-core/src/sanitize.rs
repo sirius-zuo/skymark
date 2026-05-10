@@ -74,4 +74,13 @@ mod tests {
             "data-line was stripped: {html}"
         );
     }
+
+    #[test]
+    fn ol_start_survives_sanitizer() {
+        let html = sanitize(r#"<ol start="3"><li>item</li></ol>"#);
+        assert!(
+            html.contains(r#"start="3""#),
+            "ol[start] was stripped: {html}"
+        );
+    }
 }

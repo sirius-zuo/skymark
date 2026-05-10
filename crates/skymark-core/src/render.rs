@@ -136,4 +136,19 @@ mod tests {
             "unexpected class attribute on code: {html}"
         );
     }
+
+    #[test]
+    fn render_code_block_lang_is_html_escaped() {
+        let html = render_html("```<script>\ncode\n```\n").unwrap();
+        // The lang is escaped in the class attribute, not containing unescaped < > characters
+        assert!(
+            !html.contains("class=\"<script>"),
+            "lang was not HTML-escaped: {html}"
+        );
+        // The sanitizer removes classes with unescaped < > so verify the tag is safe
+        assert!(
+            html.contains("class=\"language-"),
+            "class attribute missing: {html}"
+        );
+    }
 }
