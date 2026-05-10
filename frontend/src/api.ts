@@ -50,6 +50,10 @@ export async function discardDraft(draftKey: string): Promise<void> {
   await invoke<void>("discard_draft", { draftKey });
 }
 
+export async function exportFile(path: string, content: string): Promise<void> {
+  await invoke<void>("export_file", { path, content });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
