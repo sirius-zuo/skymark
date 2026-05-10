@@ -12,6 +12,8 @@ import { createTabHandle } from "./tabs";
 import { createHeadingIndex, HeadingEntry } from "./headings";
 import { createLinkChecker } from "./links";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { openSearchPanel } from "@codemirror/search";
 import { initTheme, toggleTheme, onThemeChange } from "./theme";
 import { createExportDropdown } from "./export-dropdown";
 import { checkForUpdate, onUpdateAvailable } from "./update";
@@ -351,6 +353,34 @@ if (isTauri()) {
       }
     });
   })();
+}
+
+// ---- Menu events -----------------------------------------------------------
+
+if (isTauri()) {
+  void listen<string>("skymark://menu", ({ payload }) => {
+    switch (payload) {
+      case "new-file":
+        editor.setValue("");
+        preview.update("");
+        files.newDocument();
+        break;
+      case "open-file":
+        void files.openInteractive().then((content) => {
+          if (content !== null) { editor.setValue(content); preview.update(content); }
+        });
+        break;
+      case "open-folder":
+        void openVault();
+        break;
+      case "save-file":
+        void files.saveInteractive(editor.getValue());
+        break;
+      case "find":
+        openSearchPanel(editor.view);
+        break;
+    }
+  });
 }
 
 reloadConfirm.addEventListener("click", () => {
