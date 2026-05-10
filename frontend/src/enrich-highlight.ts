@@ -26,10 +26,16 @@ function ensureThemeCss(theme: string): void {
 
 export async function enrichHighlight(container: HTMLElement): Promise<void> {
   const els = Array.from(
-    container.querySelectorAll<HTMLElement>('code[class^="language-"]')
+    container.querySelectorAll<HTMLElement>('code[class^="language-"]:not(.language-mermaid)')
   );
   if (els.length === 0) return;
-  const hljs = await loadHljs();
+  let hljs: typeof import("highlight.js").default;
+  try {
+    hljs = await loadHljs();
+  } catch (err) {
+    console.error("[skymark] highlight.js load failed", err);
+    return;
+  }
   ensureThemeCss(getTheme());
   for (const el of els) {
     hljs.highlightElement(el);

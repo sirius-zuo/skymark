@@ -17,12 +17,18 @@ export async function enrichMath(container: HTMLElement): Promise<void> {
     container.querySelectorAll<HTMLElement>(".math-inline, .math-display")
   );
   if (els.length === 0) return;
-  const katex = await loadKatex();
+  let katex: typeof import("katex").default;
+  try {
+    katex = await loadKatex();
+  } catch (err) {
+    console.error("[skymark] katex load failed", err);
+    return;
+  }
   for (const el of els) {
     const latex = el.textContent ?? "";
     try {
-      // katex.renderToString produces trusted markup — safe to assign
-      el.innerHTML = katex.renderToString(latex, { // noqa: innerHTML
+      // Safe: katex.renderToString produces trusted markup
+      el.innerHTML = katex.renderToString(latex, {
         throwOnError: false,
         displayMode: el.classList.contains("math-display"),
       });
