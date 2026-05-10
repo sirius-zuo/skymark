@@ -1,4 +1,5 @@
 import { createEditor } from "./editor";
+import { createSyncExtension } from "./sync";
 import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
@@ -61,6 +62,7 @@ initTheme();
 themeToggle.addEventListener("click", toggleTheme);
 
 const preview = createPreview(previewHost);
+const syncExt = createSyncExtension(preview);
 const files = createFileFlow();
 const drafts = createDraftHandle();
 const vault = createVaultHandle();
@@ -70,15 +72,19 @@ const tabs = createTabHandle((idx) => { void handleCloseTab(idx); });
 const tree = createTree(sidebar, (file) => { void openVaultFile(file); }, () => links.getBrokenFiles());
 const palette = createPalette(paletteOverlay);
 
-const editor = createEditor(editorHost, (text) => {
-  preview.update(text);
-  files.markDirty();
-  drafts.onDocChange(files.state.path, () => editor.getValue());
-  if (tabs.active) {
-    tabs.updateActive({ content: text, isDirty: true });
-    rebindTabBar();
-  }
-});
+const editor = createEditor(
+  editorHost,
+  (text) => {
+    preview.update(text);
+    files.markDirty();
+    drafts.onDocChange(files.state.path, () => editor.getValue());
+    if (tabs.active) {
+      tabs.updateActive({ content: text, isDirty: true });
+      rebindTabBar();
+    }
+  },
+  [syncExt]
+);
 
 onThemeChange(() => { preview.update(editor.getValue()); });
 

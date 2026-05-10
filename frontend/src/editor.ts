@@ -1,4 +1,4 @@
-import { EditorState, EditorSelection, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, EditorSelection, RangeSetBuilder, type Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, ViewPlugin, DecorationSet, Decoration, ViewUpdate } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
@@ -106,7 +106,11 @@ const listContinuationKeymap = [
   { key: "Enter", run: listContinuationEnter },
 ];
 
-export function createEditor(parent: HTMLElement, onChange: DocChangeListener): EditorHandle {
+export function createEditor(
+  parent: HTMLElement,
+  onChange: DocChangeListener,
+  extra: Extension[] = []
+): EditorHandle {
   const view = new EditorView({
     parent,
     state: EditorState.create({
@@ -160,6 +164,7 @@ export function createEditor(parent: HTMLElement, onChange: DocChangeListener): 
             onChange(update.state.doc.toString());
           }
         }),
+        ...extra,
       ],
     }),
   });
