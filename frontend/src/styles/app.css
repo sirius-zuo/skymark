@@ -79,6 +79,54 @@ body {
   .preview-pane { width: 100%; border: none; padding: 0; }
   .preview-content { max-width: none; }
 }
+/* ---- CodeMirror search panel ---------------------------------------------- */
+
+.cm-search {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-top: var(--pane-divider);
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+}
+
+.cm-search .cm-textfield {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px var(--space-2);
+  outline: none;
+}
+
+.cm-search .cm-textfield:focus {
+  border-color: var(--color-accent);
+}
+
+.cm-search .cm-button {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px var(--space-2);
+  cursor: pointer;
+}
+
+.cm-search .cm-button:hover {
+  background: var(--color-border);
+}
+
+.cm-search label {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
 .cm-math { color: var(--color-accent); font-style: italic; }
 .mermaid-diagram { margin: 0 0 1em 0; overflow-x: auto; text-align: center; }
 .mermaid-diagram svg { max-width: 100%; height: auto; }
