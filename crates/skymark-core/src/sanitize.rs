@@ -46,6 +46,9 @@ fn builder() -> Builder<'static> {
     tag_attrs.insert("span", ["class"].into_iter().collect());
     b.tag_attributes(tag_attrs);
 
+    let generic_attrs: HashSet<&'static str> = ["data-line"].into_iter().collect();
+    b.generic_attributes(generic_attrs);
+
     let url_schemes: HashSet<&'static str> = ["http", "https", "mailto"].into_iter().collect();
     b.url_schemes(url_schemes);
 
@@ -56,4 +59,18 @@ fn builder() -> Builder<'static> {
     // and inline event handler attributes (on*). Do not relax these.
 
     b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn data_line_survives_sanitizer() {
+        let html = sanitize(r#"<p data-line="3">hello</p>"#);
+        assert!(
+            html.contains(r#"data-line="3""#),
+            "data-line was stripped: {html}"
+        );
+    }
 }
