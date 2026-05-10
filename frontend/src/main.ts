@@ -12,6 +12,7 @@ import { createHeadingIndex, HeadingEntry } from "./headings";
 import { createLinkChecker } from "./links";
 import { invoke } from "@tauri-apps/api/core";
 import { initTheme, toggleTheme, onThemeChange } from "./theme";
+import { createExportDropdown } from "./export-dropdown";
 
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
@@ -27,10 +28,12 @@ const reloadConfirmEl = document.getElementById("reload-confirm") as HTMLElement
 const reloadDismissEl = document.getElementById("reload-dismiss") as HTMLElement | null;
 const sidebarResizerEl = document.getElementById("sidebar-resizer") as HTMLElement | null;
 const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonElement | null;
+const exportDropdownRootEl = document.getElementById("export-dropdown-root") as HTMLElement | null;
 
 if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl ||
     !vaultPrefixEl || !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
-    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl) {
+    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl ||
+    !exportDropdownRootEl) {
   throw new Error("missing layout host elements");
 }
 
@@ -46,6 +49,7 @@ const reloadConfirm = reloadConfirmEl;
 const reloadDismiss = reloadDismissEl;
 const sidebarResizer = sidebarResizerEl;
 const themeToggle = themeToggleEl;
+const exportDropdownRoot = exportDropdownRootEl;
 
 initTheme();
 themeToggle.addEventListener("click", toggleTheme);
@@ -71,6 +75,9 @@ const editor = createEditor(editorHost, (text) => {
 });
 
 onThemeChange(() => { preview.update(editor.getValue()); });
+
+const exportDropdown = createExportDropdown(preview.getContentEl(), () => title.textContent ?? "Untitled");
+exportDropdownRoot.appendChild(exportDropdown.el);
 
 files.onStateChange((s) => {
   updateTitlebar(s.path);

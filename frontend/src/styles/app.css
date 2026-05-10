@@ -39,6 +39,46 @@ body {
   color: var(--color-text-muted);
 }
 .theme-toggle-btn:hover { color: var(--color-text); }
+.export-dropdown { position: relative; }
+.export-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 var(--space-1);
+  line-height: 1;
+  color: var(--color-text-muted);
+}
+.export-btn:hover { color: var(--color-text); }
+.export-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  min-width: 180px;
+  z-index: 100;
+}
+.export-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.export-menu button:hover { background: var(--color-border); }
+
+@media print {
+  .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
+  #toast-root, #palette-overlay { display: none !important; }
+  .panes { display: block; }
+  .preview-pane { width: 100%; border: none; padding: 0; }
+  .preview-content { max-width: none; }
+}
 .cm-math { color: var(--color-accent); font-style: italic; }
 .mermaid-diagram { margin: 0 0 1em 0; overflow-x: auto; text-align: center; }
 .mermaid-diagram svg { max-width: 100%; height: auto; }
