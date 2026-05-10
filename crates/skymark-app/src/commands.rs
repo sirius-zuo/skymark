@@ -43,6 +43,27 @@ pub fn save_file(path: String, content: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn export_file(path: String, content: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.is_absolute() {
+        return Err("path must be absolute".into());
+    }
+    match p.extension().and_then(|e| e.to_str()) {
+        Some("html") => {}
+        _ => return Err("only .html extension is supported for export".into()),
+    }
+    let parent = p.parent().ok_or_else(|| "path has no parent directory".to_string())?;
+    std::fs::create_dir_all(parent).map_err(|e| format!("create dir failed: {e}"))?;
+    let tmp = parent.join(format!(
+        ".{}.tmp",
+        p.file_name().and_then(|s| s.to_str()).unwrap_or("export")
+    ));
+    std::fs::write(&tmp, content.as_bytes()).map_err(|e| format!("write failed: {e}"))?;
+    std::fs::rename(&tmp, &p).map_err(|e| format!("rename failed: {e}"))?;
+    Ok(())
+}
+
 // Path validation helper used by Tasks 8 and 9.
 pub(crate) fn validate_markdown_path(path: &str) -> Result<PathBuf, String> {
     let p = PathBuf::from(path);
@@ -197,5 +218,34 @@ mod tests {
         assert!(load_draft_from_dir(&dir, &key).is_err(), "old draft should be GC'd");
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn export_file_writes_html_content() {
+        let dir = std::env::temp_dir().join(format!("skymark-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("out.html");
+        let content = "<h1>Hello</h1>".to_string();
+
+        let result = export_file(path.to_string_lossy().into_owned(), content.clone());
+        assert!(result.is_ok(), "expected ok, got: {:?}", result);
+
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(written, content);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn export_file_rejects_relative_path() {
+        let result = export_file("relative/out.html".into(), "x".into());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("absolute"), "error should mention absolute");
+    }
+
+    #[test]
+    fn export_file_rejects_non_html_extension() {
+        let result = export_file("/tmp/out.pdf".into(), "x".into());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("html"), "error should mention html");
     }
 }

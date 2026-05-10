@@ -23,6 +23,7 @@ fn main() {
             commands::render,
             commands::open_file,
             commands::save_file,
+            commands::export_file,
             draft::save_draft,
             draft::load_draft,
             draft::list_drafts,
