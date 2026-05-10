@@ -6,6 +6,7 @@ import { enrichMermaid } from "./enrich-mermaid";
 export interface PreviewHandle {
   update(text: string): void;
   getContentEl(): HTMLElement;
+  scrollToLine(line: number): void;
 }
 
 export function createPreview(host: HTMLElement): PreviewHandle {
@@ -56,6 +57,28 @@ export function createPreview(host: HTMLElement): PreviewHandle {
     },
     getContentEl(): HTMLElement {
       return content;
+    },
+    scrollToLine(line: number): void {
+      const markers = Array.from(
+        content.querySelectorAll<HTMLElement>("[data-line]")
+      );
+      if (markers.length === 0) return;
+
+      // Find the last marker whose data-line value is <= the requested line.
+      // Markers are in DOM order which matches ascending data-line order.
+      let target: HTMLElement | null = null;
+      for (const el of markers) {
+        const n = parseInt(el.getAttribute("data-line") ?? "0", 10);
+        if (n <= line) target = el;
+        else break;
+      }
+
+      if (target) {
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else {
+        // All block markers are after the cursor line — scroll preview to top.
+        host.scrollTop = 0;
+      }
     },
   };
 }
