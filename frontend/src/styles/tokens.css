@@ -23,3 +23,12 @@
   --pane-divider: 1px solid var(--color-border);
   --content-max-width: 720px;
 }
+
+[data-theme="dark"] {
+  --color-bg: #1c1917;
+  --color-surface: #292524;
+  --color-border: #44403c;
+  --color-text: #fafaf9;
+  --color-text-muted: #a8a29e;
+  --color-accent: #60a5fa;
+}

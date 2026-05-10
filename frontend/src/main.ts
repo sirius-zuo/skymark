@@ -11,6 +11,7 @@ import { createTabHandle } from "./tabs";
 import { createHeadingIndex, HeadingEntry } from "./headings";
 import { createLinkChecker } from "./links";
 import { invoke } from "@tauri-apps/api/core";
+import { initTheme, toggleTheme, onThemeChange } from "./theme";
 
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
@@ -25,10 +26,11 @@ const reloadBannerEl = document.getElementById("reload-banner") as HTMLElement |
 const reloadConfirmEl = document.getElementById("reload-confirm") as HTMLElement | null;
 const reloadDismissEl = document.getElementById("reload-dismiss") as HTMLElement | null;
 const sidebarResizerEl = document.getElementById("sidebar-resizer") as HTMLElement | null;
+const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonElement | null;
 
 if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl ||
     !vaultPrefixEl || !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
-    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl) {
+    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl) {
   throw new Error("missing layout host elements");
 }
 
@@ -43,6 +45,10 @@ const reloadBanner = reloadBannerEl;
 const reloadConfirm = reloadConfirmEl;
 const reloadDismiss = reloadDismissEl;
 const sidebarResizer = sidebarResizerEl;
+const themeToggle = themeToggleEl;
+
+initTheme();
+themeToggle.addEventListener("click", toggleTheme);
 
 const preview = createPreview(previewHost);
 const files = createFileFlow();
@@ -63,6 +69,8 @@ const editor = createEditor(editorHost, (text) => {
     rebindTabBar();
   }
 });
+
+onThemeChange(() => { preview.update(editor.getValue()); });
 
 files.onStateChange((s) => {
   updateTitlebar(s.path);
