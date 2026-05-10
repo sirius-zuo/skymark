@@ -9,6 +9,8 @@
     "core:webview:default",
     "core:event:default",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "updater:default",
+    "process:default"
   ]
 }
