@@ -1,4 +1,5 @@
 import { renderMarkdown } from "./api";
+import { enrichHighlight } from "./enrich-highlight";
 
 export interface PreviewHandle {
   update(text: string): void;
@@ -13,7 +14,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   let timer: number | null = null;
   let inflight = 0;
 
-  function commitDom(htmlString: string): void {
+  async function commitDom(htmlString: string): Promise<void> {
     // The HTML from skymark-core is already sanitized (spec §5.1).
     // We parse into a detached document — DOMParser does not execute <script>
     // tags — then move nodes into the live preview via replaceChildren.
@@ -23,6 +24,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       adopted.push(document.importNode(node, true));
     }
     content.replaceChildren(...adopted);
+    await enrichHighlight(content);
   }
 
   async function commit(text: string, requestId: number): Promise<void> {
@@ -30,7 +32,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       const html = await renderMarkdown(text);
       // Drop stale results — only the most recent invoke commits.
       if (requestId !== inflight) return;
-      commitDom(html);
+      await commitDom(html);
     } catch (err) {
       console.error("[skymark] render failed", err);
       content.replaceChildren(document.createTextNode("Render failed: " + String(err)));
