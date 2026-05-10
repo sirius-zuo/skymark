@@ -1,5 +1,6 @@
 import { renderMarkdown } from "./api";
 import { enrichHighlight } from "./enrich-highlight";
+import { enrichMath } from "./enrich-math";
 
 export interface PreviewHandle {
   update(text: string): void;
@@ -25,6 +26,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
     }
     content.replaceChildren(...adopted);
     await enrichHighlight(content);
+    await enrichMath(content);
   }
 
   async function commit(text: string, requestId: number): Promise<void> {

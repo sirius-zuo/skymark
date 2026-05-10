@@ -39,6 +39,7 @@ body {
   color: var(--color-text-muted);
 }
 .theme-toggle-btn:hover { color: var(--color-text); }
+.cm-math { color: var(--color-accent); font-style: italic; }
 
 .panes {
   flex: 1;

@@ -1,11 +1,38 @@
-import { EditorState, EditorSelection } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { EditorState, EditorSelection, RangeSetBuilder } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, ViewPlugin, DecorationSet, Decoration, ViewUpdate } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { continueList, isUrl } from "./smart_edit";
+
+const mathMark = Decoration.mark({ class: "cm-math" });
+
+function buildMathDecorations(doc: string): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const mathPattern = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
+  let m: RegExpExecArray | null;
+  while ((m = mathPattern.exec(doc)) !== null) {
+    builder.add(m.index, m.index + m[0].length, mathMark);
+  }
+  return builder.finish();
+}
+
+const mathPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildMathDecorations(view.state.doc.toString());
+    }
+    update(update: ViewUpdate): void {
+      if (update.docChanged) {
+        this.decorations = buildMathDecorations(update.state.doc.toString());
+      }
+    }
+  },
+  { decorations: (v: { decorations: DecorationSet }) => v.decorations }
+);
 
 export interface EditorHandle {
   view: EditorView;
@@ -98,6 +125,7 @@ export function createEditor(parent: HTMLElement, onChange: DocChangeListener): 
         ]),
         markdown(),
         syntaxHighlighting(defaultHighlightStyle),
+        mathPlugin,
         EditorView.lineWrapping,
         EditorView.domEventHandlers({
           paste(event, view) {
