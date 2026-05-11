@@ -19,6 +19,7 @@ fn main() {
             }
             app.manage(watcher::WatcherState {
                 debouncer: std::sync::Mutex::new(None),
+                watched_paths: std::sync::Mutex::new(std::collections::HashSet::new()),
             });
 
             app.on_menu_event(|app, event| {
@@ -44,8 +45,9 @@ fn main() {
             draft::list_drafts,
             draft::discard_draft,
             vault::scan_vault,
-            watcher::watch_paths,
-            watcher::unwatch_paths,
+            watcher::add_watch,
+            watcher::remove_watch,
+            watcher::clear_all,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Skymark");

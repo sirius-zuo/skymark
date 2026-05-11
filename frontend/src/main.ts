@@ -148,7 +148,7 @@ async function openFileInteractive(): Promise<void> {
 
   if (!inVault) {
     // Open the file's parent directory as the new vault.
-    if (isTauri()) void invoke("unwatch_paths");
+    if (isTauri()) void invoke("clear_all");
     const prevPaths = tabs.entries.map(e => e.absPath);
     tabs.clearAll();
     for (const p of prevPaths) headings.remove(p);
@@ -194,7 +194,10 @@ async function openFileInteractive(): Promise<void> {
     tabs.persist();
     rebindTabBar();
     tree.setActive(newPath);
-    void watchCurrentTabs();
+    // Add this file to the watcher
+    if (isTauri()) {
+      void invoke("add_watch", { path: newPath });
+    }
   } else {
     editor.setValue(content);
     preview.update(content);
@@ -308,6 +311,10 @@ async function handleCloseTab(idx: number): Promise<void> {
     const discard = confirm(`Discard unsaved changes to "${basename(entry.absPath)}"?`);
     if (!discard) return;
   }
+  // Remove this tab from watching before closing
+  if (isTauri() && entry.absPath) {
+    void invoke("remove_watch", { path: entry.absPath });
+  }
   tabs.forceCloseTab(idx);
   headings.remove(entry.absPath);
   links.remove(entry.absPath);
@@ -328,7 +335,6 @@ async function handleCloseTab(idx: number): Promise<void> {
   }
   if (vault.root && active) tree.setActive(active.absPath);
   rebindTabBar();
-  void watchCurrentTabs();
 }
 
 // ---- Vault helpers ---------------------------------------------------------
@@ -337,7 +343,7 @@ async function openVault(): Promise<void> {
   const ok = await vault.open();
   if (!ok) return;
 
-  if (isTauri()) void invoke("unwatch_paths");
+  if (isTauri()) void invoke("clear_all");
 
   const prevPaths = tabs.entries.map(e => e.absPath);
   tabs.clearAll();
@@ -403,7 +409,10 @@ async function openVaultFile(file: VaultFile): Promise<void> {
   links.update(file.abs_path, content, vault.files);
   tabs.persist();
   rebindTabBar();
-  void watchCurrentTabs();
+  // Add this file to the watcher
+  if (isTauri()) {
+    void invoke("add_watch", { path: file.abs_path });
+  }
 }
 
 async function openHeading(h: HeadingEntry): Promise<void> {
@@ -423,7 +432,10 @@ async function openHeading(h: HeadingEntry): Promise<void> {
     links.update(h.absPath, content, vault.files);
     tabs.persist();
     rebindTabBar();
-    void watchCurrentTabs();
+    // Add this file to the watcher
+    if (isTauri()) {
+      void invoke("add_watch", { path: h.absPath });
+    }
   }
   editor.scrollToLine(h.line);
 }
@@ -431,7 +443,13 @@ async function openHeading(h: HeadingEntry): Promise<void> {
 async function watchCurrentTabs(): Promise<void> {
   if (!isTauri()) return;
   try {
-    await invoke("watch_paths", { paths: tabs.entries.map(e => e.absPath) });
+    // Use incremental watcher: clear all, then add each tab
+    await invoke("clear_all");
+    for (const entry of tabs.entries) {
+      if (entry.absPath) {
+        await invoke("add_watch", { path: entry.absPath });
+      }
+    }
   } catch {
     showToast("File watching unavailable");
   }
@@ -611,10 +629,20 @@ void (async () => {
     tree.setActive(tabs.active.absPath);
     updateTitlebar(tabs.active.absPath);
     rebindTabBar();
-    void watchCurrentTabs();
+    // Add all restored tabs to the watcher
+    if (isTauri()) {
+      for (const entry of tabs.entries) {
+        if (entry.absPath) {
+          void invoke("add_watch", { path: entry.absPath });
+        }
+      }
+    }
   } else {
     const autoFile = vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ?? vault.files[0];
-    if (autoFile) { await openVaultFile(autoFile); void watchCurrentTabs(); }
+    if (autoFile) {
+      await openVaultFile(autoFile);
+      // openVaultFile already calls add_watch, so no need to call watchCurrentTabs
+    }
   }
 })();
 

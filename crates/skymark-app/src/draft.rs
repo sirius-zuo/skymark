@@ -1,7 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
+
+/// Global write lock for draft operations to prevent race conditions
+/// between auto-save timer and explicit Cmd+S saves.
+pub struct DraftState {
+    pub write_lock: Mutex<()>,
+}
 
 pub type DraftKey = String;
 
@@ -188,10 +195,13 @@ fn app_drafts_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[tauri::command]
 pub fn save_draft(
+    state: tauri::State<DraftState>,
     app: tauri::AppHandle,
     path: Option<String>,
     content: String,
 ) -> Result<DraftKey, String> {
+    // Serialize draft writes to prevent race conditions with explicit saves
+    let _lock = state.write_lock.lock().map_err(|e| format!("draft lock: {e}"))?;
     save_draft_to_dir(&app_drafts_dir(&app)?, path.as_deref(), &content)
 }
 
