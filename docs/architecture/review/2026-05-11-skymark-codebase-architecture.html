@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Review — Skymark</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    nav {
+      width: 220px;
+      min-width: 220px;
+      background: #fff;
+      border-right: 1px solid #e5e5ea;
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    nav h2 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 1rem;
+    }
+
+    nav a {
+      display: block;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      color: #3a3a3c;
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      transition: background 0.15s;
+    }
+
+    nav a:hover { background: #f2f2f7; }
+
+    main {
+      flex: 1;
+      padding: 2.5rem 3rem;
+      max-width: 960px;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #e5e5ea;
+    }
+
+    header h1 { font-size: 1.75rem; font-weight: 700; }
+    header p { margin-top: 0.5rem; color: #6e6e73; font-size: 0.95rem; }
+    header .meta { margin-top: 0.75rem; font-size: 0.8rem; color: #8e8e93; }
+
+    section { margin-bottom: 3rem; scroll-margin-top: 2rem; }
+
+    section h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e5e5ea;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .card p { color: #3a3a3c; font-size: 0.9rem; }
+
+    .diagram-card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .diagram-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .diagram-desc { color: #6e6e73; font-size: 0.85rem; margin-bottom: 1rem; }
+    .mermaid { min-height: 80px; }
+
+    .findings { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .finding {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      padding: 0.875rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .finding.strength { background: #f0faf4; border-left: 3px solid #30d158; }
+    .finding.concern  { background: #fffbf0; border-left: 3px solid #ff9f0a; }
+    .finding.risk     { background: #fff5f5; border-left: 3px solid #ff3b30; }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .badge-strength { background: #30d158; color: #fff; }
+    .badge-concern  { background: #ff9f0a; color: #fff; }
+    .badge-risk     { background: #ff3b30; color: #fff; }
+
+    .finding-text strong { display: block; margin-bottom: 0.2rem; }
+    .finding-text p { color: #3a3a3c; }
+
+    .recommendations ol { padding-left: 1.5rem; }
+    .recommendations li { margin-bottom: 0.75rem; color: #3a3a3c; font-size: 0.9rem; }
+    .recommendations li strong { color: #1d1d1f; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h2>Architecture Review</h2>
+    <a href="#current">Current Architecture</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#security">Security</a>
+    <a href="#scalability">Scalability</a>
+    <a href="#reliability">Reliability</a>
+    <a href="#recommended">Recommended Architecture</a>
+  </nav>
+
+  <main>
+    <header>
+      <h1>Skymark Architecture Review</h1>
+      <p>A fast, lightweight Markdown editor for the desktop, built with Rust and Tauri 2. Two-pane layout with live preview, vault mode, and draft-based crash recovery.</p>
+      <p class="meta">Generated 2026-05-11 · Codebase Review</p>
+    </header>
+
+    <!-- ============================================================
+         CURRENT ARCHITECTURE
+         ============================================================ -->
+    <section id="current">
+      <h2>Current Architecture</h2>
+
+      <div class="diagram-card">
+        <h3>System Context</h3>
+        <p class="diagram-desc">The user interacts with the Skymark desktop app, which reads and writes local markdown files and communicates with GitHub for auto-updates.</p>
+        <div class="mermaid">
+graph TB
+  User(["User"]) --> Skymark["Skymark Desktop App\n(Tauri 2 + Rust + TS)"]
+  Skymark --> LocalFS["Local File System\nMarkdown files, drafts,\nconfig in app_data_dir"]
+  Skymark --> GitHub["GitHub Releases\nAuto-update check"]
+  Skymark --> WebKit["WebKitGTK WebView\nRenders HTML preview\nwith CSP enforcement"]
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Component Diagram</h3>
+        <p class="diagram-desc">Three-layer architecture: frontend (TypeScript/CodeMirror), skymark-core (pure Rust rendering library), and skymark-app (Tauri backend with file I/O commands).</p>
+        <div class="mermaid">
+graph LR
+  subgraph "Frontend (Vite + TS)"
+    A1["Editor\nCodeMirror 6"]
+    A2["Preview\nDOMParser + enrich"]
+    A3["Vault UI\nTree + tabs + palette"]
+    A4["Smart edit\ncontinueList, isUrl"]
+  end
+  A1 -->|"tauri invoke"| B1
+  A2 -->|"tauri invoke"| B1
+  A3 -->|"tauri invoke"| B2
+  A3 -->|"tauri invoke"| B3
+  A4 -->|"direct import"| C1
+
+  subgraph "skymark-app (Tauri backend)"
+    B1["render command"]
+    B2["open_file / save_file"]
+    B3["scan_vault / watch_paths"]
+    B4["draft commands\nsave / load / list / discard"]
+  end
+
+  subgraph "skymark-core (pure Rust)"
+    C1["render_html\npulldown-cmark → HTML"]
+    C2["sanitize\nammonia allowlist"]
+    C3["continue_list\nsmart-edit logic"]
+  end
+
+  B1 --> C1
+  C1 --> C2
+  B4 --> C1
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Keystroke-to-Preview Sequence</h3>
+        <p class="diagram-desc">The live preview pipeline: keystroke triggers a debounced invoke to the Rust backend, which parses and sanitizes, then returns HTML for diff-apply in the preview pane.</p>
+        <div class="mermaid">
+sequenceDiagram
+  participant U as User
+  participant E as Editor (CM6)
+  participant D as Debounce (50ms)
+  participant T as Tauri invoke
+  participant R as skymark-core
+  participant S as Sanitizer
+  participant P as Preview DOM
+
+  U->>E: keystroke
+  E->>E: docChanged event
+  E->>D: update text
+  D->>T: invoke("render", text)
+  T->>R: render_html(text)
+  R->>R: pulldown-cmark parse → AST
+  R->>S: HTML string (with data-line)
+  S->>S: ammonia allowlist cleanup
+  S-->>R: sanitized HTML
+  R-->>T: HTML string
+  T-->>D: HTML response
+  D->>P: DOMParser + replaceChildren
+  P->>P: enrichMath / enrichMermaid / enrichHighlight
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Data / Information Architecture</h3>
+        <p class="diagram-desc">Key data entities and their relationships: TabEntry holds editor state per file, Draft captures auto-save snapshots, VaultFile indexes the file tree, and HeadingEntry/LinkEntry support navigation and broken-link detection.</p>
+        <div class="mermaid">
+erDiagram
+  TAB_ENTRY {
+    string absPath
+    string content
+    bool isDirty
+    number cursorPos
+    number scrollTop
+    bool externallyModified
+  }
+  DRAFT {
+    string key FNV-1a hash
+    string draftContent
+    DraftMeta meta
+  }
+  DRAFT_META {
+    string originalPath
+    uint64 savedAtUnix
+    uint64 sourceMtimeUnix
+  }
+  VAULT_FILE {
+    string absPath
+    string relPath
+    string name
+  }
+  HEADING_ENTRY {
+    string absPath
+    string relPath
+    string text
+    number line
+    number level
+  }
+  LINK_ENTRY {
+    string sourcePath
+    string targetPath
+    bool isBroken
+  }
+  SETTINGS {
+    string key
+    string value
+  }
+
+  TAB_ENTRY ||--o{ HEADING_ENTRY : "indexes"
+  TAB_ENTRY ||--o{ LINK_ENTRY : "tracks links"
+  DRAFT ||--|| DRAFT_META : "carries"
+  VAULT_FILE ||--o{ HEADING_ENTRY : "contains"
+  VAULT_FILE ||--o{ LINK_ENTRY : "contains targets"
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Architecture Narrative</h3>
+        <p>Skymark follows a three-layer architecture: a <strong>frontend</strong> built with Vite + TypeScript using CodeMirror 6 for the editor and a custom preview controller with DOMParser-based rendering; a <strong>pure Rust core library</strong> (skymark-core) that handles Markdown parsing, HTML generation, sanitization, and smart-edit logic — designed to compile to wasm32; and a <strong>Tauri 2 backend</strong> (skymark-app) that exposes commands for file I/O, vault scanning, file watching, and draft management.</p>
+        <p style="margin-top: 0.75rem;">The frontend communicates with the backend exclusively through Tauri's invoke/listen mechanism. The render pipeline is a single canonical path: markdown text → pulldown-cmark → HTML → ammonia sanitization → return to frontend → DOMParser → replaceChildren → KaTeX/Mermaid/Prism enrichment. The vault mode adds a file tree sidebar, multi-tab editing, fuzzy search, broken-link detection, and a file watcher for external-change detection. Draft-based crash recovery saves periodic snapshots to app_data_dir.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         ARCHITECTURE FINDINGS
+         ============================================================ -->
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Separation of Concerns — skymark-core is pure</strong>
+            <p>skymark-core has zero dependencies on Tauri, browser APIs, or any non-WASM-compatible crates. This cleanly separates the Markdown rendering logic (parsing, AST, sanitization, smart-edit) from the host shell. The crate can be compiled to wasm32-unknown-unknown, enabling a future web app with minimal rework.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Single Canonical Render Pipeline</strong>
+            <p>The live preview and HTML export share the exact same code path (render_html → sanitize). There is no drift between what the user sees while editing and what gets exported. This eliminates a class of "preview looks different from export" bugs.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Atomic File Writes</strong>
+            <p>Both save_file and export_file use write-temp-then-rename, preventing partial writes from corrupting user documents. Draft files also use atomic writes. This is a reliable-pattern for local-first apps.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Explicit Save Model with Draft Recovery</strong>
+            <p>The app never silently saves — users control when files are persisted. Drafts are saved every 10 seconds (or on idle) with atomic writes, and the recovery system detects conflicts with external file changes, surfacing a 3-way prompt. This is a well-thought-out crash-recovery strategy.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>God Module — skymark-app/src/main.rs</strong>
+            <p>main.rs (90 lines) handles Tauri builder setup, plugin initialization, menu construction (with nested prepend logic), watcher state management, menu event routing, and invoke_handler registration. This single file is the entry point, the app configuration, and the command dispatch router. Extracting menu construction into a separate module would reduce coupling.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>God Module — frontend/src/main.ts</strong>
+            <p>The frontend main.ts (~400 lines) is the central hub for: file flow, draft handling, vault management, tab management, heading indexing, link checking, tree rendering, palette, toolbar, export dropdown, update banner, keyboard shortcuts, menu events, watcher events, sidebar resize, draft recovery, and startup restoration. No single file should orchestrate all of these concerns. This makes it hard to reason about, test, or modify any one concern in isolation.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Missing Abstraction Layer — Direct std::fs in Tauri Commands</strong>
+            <p>Tauri command handlers in commands.rs and draft.rs call std::fs::read_to_string, std::fs::write, and std::fs::rename directly. There is no storage abstraction trait. This makes it impossible to swap in a different storage backend (e.g., encrypted storage, virtual file system) and couples the command layer to the concrete file system.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>No Centralized State Management in Frontend</strong>
+            <p>The frontend has no centralized state store. State is distributed across module instances (files, drafts, vault, tabs, headings, links, tree, palette) plus localStorage for vault root and sidebar width. There is no single source of truth, making it difficult to track the complete app state or implement undo/redo across the entire application.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>Frontend Has No Error Boundary for Preview</strong>
+            <p>If the preview pane crashes (e.g., KaTeX throws on malformed math), the error is caught at the invoke level and a text node is inserted into the preview. However, the editor keeps accepting input, and there is no mechanism to recover the preview state. A full re-render of the current content is needed but not automatically triggered.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>Vault Scan Has No Depth Limit</strong>
+            <p>The scan_dir function uses recursion with no depth cap. On a vault with deeply nested directories (e.g., node_modules-like structures), this could cause a stack overflow. The 5000-file cap prevents unbounded work but does not prevent deep traversal before hitting the cap.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECURITY FINDINGS
+         ============================================================ -->
+    <section id="security">
+      <h2>Security</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>HTML Sanitization — Allowlist with Strict Attribute Control</strong>
+            <p>The sanitizer uses ammonia with a carefully curated allowlist of tags, per-tag attribute restrictions, and generic_attributes for data-line. Event handlers (on*), script/iframe/object/embed elements, and javascript:/data: URL schemes are all stripped by default and never relaxed. This is a strong defense against XSS in markdown content.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>DOMParser-Based Preview Rendering (Never innerHTML)</strong>
+            <p>The preview controller uses DOMParser to parse HTML into a detached document, then imports nodes into the live DOM via replaceChildren. This prevents any embedded scripts from executing, providing a second layer of defense beyond the ammonia sanitizer.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Path Validation on All File Operations</strong>
+            <p>Every Tauri command that touches the file system validates that the path is absolute and has an allowed extension (.md, .markdown, .txt for source files). Relative paths and arbitrary extensions are rejected. Draft keys are validated against path traversal (no /, \, ..). This is a solid defense against path traversal attacks.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Tauri Capabilities — Deny-by-Default</strong>
+            <p>The capability model is deny-by-default. Each Tauri command the frontend may invoke is named explicitly. File-system scope is dynamic — granted only for the active vault root and its attachments folder, never the whole disk. This follows the principle of least privilege.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Local-First Design Collapses Attack Surface</strong>
+            <p>As a local-first desktop app, Skymark has no network server, no user database, no authentication layer, and no external API calls (except optional auto-update). The OWASP attack surface is significantly reduced — the primary trust boundary is the markdown content itself, which is sanitized at render time.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>File Watcher Accepts Paths from Frontend Without Additional Validation</strong>
+            <p>The watch_paths command receives file paths from the frontend (via tabs.entries.map) and passes them directly to notify_debouncer_mini. While the paths originate from the vault scan (which validates abs_path), there is no additional validation at the watcher boundary. If a future feature introduces arbitrary user input to the watch list, it could be used to watch arbitrary system directories.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Draft System — FNV-1a Hash for Keys Is Not Cryptographic</strong>
+            <p>Draft keys are generated using FNV-1a, which is fast and deterministic but not collision-resistant. While not a direct security risk in a local-first app, it means two different file paths could theoretically produce the same key (extremely unlikely in practice). More importantly, the draft content path stored in DraftMeta.original_path is used as-is without normalization, which could lead to inconsistent key generation if the same file is opened via different path representations (symlinks, relative vs absolute).</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>No Rate Limiting on Auto-Save Drafts</strong>
+            <p>The draft system saves every 10 seconds or on idle ≥1s. There is no rate limit on how frequently the frontend can trigger draft saves. A malfunctioning editor or rapid tab switching could cause excessive file I/O, though the atomic write pattern prevents data corruption.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>No Encrypted Storage for Sensitive Data</strong>
+            <p>Settings are persisted as plain JSON in app_data_dir. While Skymark doesn't currently store credentials, if future features add API keys or sync tokens, they would be stored in plaintext. The architecture has no secrets management pattern in place.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SCALABILITY FINDINGS
+         ============================================================ -->
+    <section id="scalability">
+      <h2>Scalability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>50ms Render Debounce Budget Is Well-Defined</strong>
+            <p>The architecture explicitly budgets 50ms for preview updates and implements request ID deduplication to drop stale render results. This is a measurable performance target that guides development decisions.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Diff Rendering Strategy for Large Documents</strong>
+            <p>The design spec defines a per-block diff render approach using BlockId (structural hash) to map AST blocks to DOM elements. Only changed blocks are re-rendered, and enrichment (KaTeX/Mermaid/Prism) is limited to changed regions. This is the right approach for maintaining the 50ms budget on large documents.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>No Render Result Caching</strong>
+            <p>Every keystroke that survives the debounce window triggers a full re-parse of the entire document. There is no content-hash-based caching layer. For documents with many small edits (e.g., typing one character at a time), the entire Markdown → AST → HTML pipeline runs repeatedly on nearly-identical input. A cache keyed on content hash would skip re-parsing for unchanged content ranges.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Vault File Watcher Re-Watches on Every Tab Change</strong>
+            <p>The watchCurrentTabs function calls invoke("watch_paths", { paths: tabs.entries.map(...) }) every time a tab is opened or closed. This creates a new debouncer and drops the old one. There is no connection pooling or incremental watch management. On a vault with many open tabs, this could cause brief periods where file changes are not detected during the watcher swap.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Vault Scan Is Synchronous and Blocks</strong>
+            <p>The scan_vault command runs a recursive directory walk on the Tauri backend thread. For a vault with thousands of files, this could block the Tauri event loop briefly. The 5000-file cap limits worst-case work but the traversal is still synchronous. A background task with progress reporting would be more scalable.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>No Virtualized Preview for Large Documents</strong>
+            <p>The preview renders all blocks in the DOM simultaneously. For a 50k+ word document with many blocks, this creates a large DOM tree that slows down scroll-sync resolution (which queries all [data-line] elements on every scroll event) and increases memory usage. The design spec acknowledges this as an out-of-scope concern but it should be flagged as a hard ceiling.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         RELIABILITY FINDINGS
+         ============================================================ -->
+    <section id="reliability">
+      <h2>Reliability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Robust Draft-Based Crash Recovery</strong>
+            <p>The draft system is a strong reliability feature. Drafts are saved periodically (every 10s or on idle), written atomically, and the recovery system detects external file changes to avoid overwriting user edits made outside the app. The 3-way prompt (keep draft / keep disk / diff) gives users control. Draft GC after 30 days prevents unbounded disk growth.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>500ms File Watcher Debounce</strong>
+            <p>The notify_debouncer_mini debouncer applies a 500ms delay before emitting file-change events. This prevents rapid file system events (common on macOS with FSEvents) from flooding the UI with reload prompts. The debounce is applied consistently across all watched files.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Atomic Write Pattern Prevents Data Corruption</strong>
+            <p>All file writes (save_file, export_file, draft saves) use the write-temp-then-rename pattern. This ensures that a crash mid-write never leaves a partially-written file on disk. The temp files are prefixed with "." so they are hidden from typical file browsers and won't appear in the vault file tree.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Draft System Has No Race Condition Protection</strong>
+            <p>There is no locking or file-level mutex around draft writes. If the auto-save timer fires while the user is also explicitly saving (Cmd+S), both operations could race on the same draft file. While atomic writes prevent corruption, the draft's saved_at_unix timestamp could be overwritten by a slightly newer save, causing the recovery system to lose track of which version is most recent.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>File Watcher Has No Retry Logic</strong>
+            <p>If watch_paths fails (e.g., the file is deleted between vault scan and watch registration), the error is silently swallowed with a toast. There is no retry mechanism. If the watcher process crashes or the file system becomes temporarily unavailable, there is no automatic recovery — the user must manually re-open the vault to re-establish watching.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Auto-Update Is Fire-and-Forget</strong>
+            <p>The update check runs 3 seconds after launch with no timeout or retry. If the GitHub API is unreachable or the network is down, no update check occurs. There is no fallback (e.g., checking a mirror URL) and no user-visible error message beyond "You're up to date" when the check fails silently.</p>
+          </div>
+        </div>
+
+        <div class="finding risk">
+          <span class="badge badge-risk">Risk</span>
+          <div class="finding-text">
+            <strong>No Structured Logging or Error Reporting</strong>
+            <p>The application uses console.error for error reporting in the frontend and Result types with to_string() error conversion in Rust. There is no structured logging system, no error aggregation, and no way to diagnose issues in production. For a local-first app this is less critical than for a cloud service, but it makes debugging hard for both users and developers.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================
+         RECOMMENDED ARCHITECTURE
+         ============================================================ -->
+    <section id="recommended">
+      <h2>Recommended Architecture</h2>
+
+      <div class="diagram-card">
+        <h3>Revised Component Diagram (with extracted modules)</h3>
+        <p class="diagram-desc">The recommended structure separates main.rs concerns into a menu builder module and adds a storage abstraction layer between Tauri commands and std::fs.</p>
+        <div class="mermaid">
+graph LR
+  subgraph "Frontend (Vite + TS)"
+    FE["Editor + Preview + Vault UI\n(remaining modules unchanged)"]
+  end
+  FE -->|"tauri invoke"| TA
+
+  subgraph "skymark-app — Revised"
+    TA["Tauri Commands\n(render / open / save / vault)"]
+    ST["Storage Trait\n(read / write / list / mtime)"]
+    TA --> ST
+    MB["Menu Builder\n(extracted from main.rs)"]
+    TA --> MB
+  end
+
+  subgraph "skymark-core (unchanged)"
+    CORE["render_html\nsanitize\ncontinue_list\nis_url"]
+  end
+
+  TA --> CORE
+  ST -->|"file system adapter"| FS["std::fs"]
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Revised File Watcher Architecture</h3>
+        <p class="diagram-desc">Incremental watch management with a persistent WatcherManager that adds/removes individual file watches without recreating the entire debouncer.</p>
+        <div class="mermaid">
+sequenceDiagram
+  participant FE as Frontend
+  participant WM as WatcherManager
+  participant DB as Debouncer
+  participant FS as File System
+
+  FE->>WM: watch_add(paths)
+  WM->>DB: watch(path, non-recursive)
+  WM-->>FE: ok
+
+  FE->>WM: watch_remove(paths)
+  WM->>DB: unwatch(path)
+  WM-->>FE: ok
+
+  loop On file change
+    FS->>DB: change event
+    DB->>DB: debounce 500ms
+    DB->>FE: emit("file-changed", path)
+  end
+        </div>
+      </div>
+
+      <div class="card recommendations">
+        <h3>Actionable Recommendations</h3>
+        <ol>
+          <li><strong>Extract menu construction from main.rs</strong> — Move the File and Edit menu item creation into a dedicated <code>menu.rs</code> module. This reduces main.rs from ~90 lines to ~50 lines and isolates the menu logic for easier testing and modification.</li>
+          <li><strong>Add a Storage trait abstraction</strong> — Define a <code>Storage</code> trait in skymark-app with methods for read, write, list, and mtime. Implement it with <code>StdStorage</code> (wrapping std::fs) for the current codebase. This enables future swapping to encrypted storage, virtual file systems, or test doubles without changing Tauri commands.</li>
+          <li><strong>Implement incremental file watcher management</strong> — Replace the watch_paths/unwatch_paths pattern (which recreates the debouncer entirely) with a WatcherManager that adds and removes individual file watches. This eliminates the brief period where file changes are not detected during watcher swap and reduces resource churn.</li>
+          <li><strong>Add content-hash render caching in skymark-core</strong> — Cache render results keyed on a content hash (e.g., FNV-1a or xxhash) so that re-parsing is skipped when the document content has not changed since the last render. This reduces CPU usage on repeated edits and helps maintain the 50ms latency budget.</li>
+          <li><strong>Add a depth limit to vault scan</strong> — Cap the recursive directory traversal at a configurable depth (e.g., 20 levels) to prevent stack overflow on deeply nested directories. The 5000-file cap should be paired with a depth cap for defense in depth.</li>
+          <li><strong>Add retry logic to file watcher initialization</strong> — If watch_paths fails (e.g., file deleted between scan and watch), retry with exponential backoff (3 attempts, 1s / 2s / 4s intervals) before surfacing an error to the user. This handles transient file system state changes gracefully.</li>
+          <li><strong>Add a draft write mutex</strong> — Use a tokio Mutex (or std::sync::Mutex with a guard pattern) to serialize draft writes. This prevents the auto-save timer and explicit save from racing on the same draft file, ensuring the recovery system always has a consistent view of the latest draft.</li>
+          <li><strong>Add structured logging</strong> — Integrate a lightweight logging crate (e.g., <code>tracing</code>) with a file sink for the Rust backend and a console-based logger for the frontend. This enables diagnosing issues in production without requiring the user to open developer tools.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>Migration Notes</h3>
+        <p><strong>Phase 1 (low effort, high impact):</strong> Extract menu construction from main.rs (Recommendation 1) and add a depth limit to vault scan (Recommendation 5). These are single-file changes with immediate benefits.</p>
+        <p style="margin-top: 0.5rem;"><strong>Phase 2 (moderate effort):</strong> Implement incremental file watcher management (Recommendation 3) and add a draft write mutex (Recommendation 7). These require changes to the watcher and draft modules but are self-contained.</p>
+        <p style="margin-top: 0.5rem;"><strong>Phase 3 (higher effort):</strong> Add a Storage trait abstraction (Recommendation 2) and content-hash render caching (Recommendation 4). These are architectural changes that touch multiple modules and should be planned as a dedicated effort.</p>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
