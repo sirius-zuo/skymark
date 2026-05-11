@@ -3,6 +3,7 @@
 mod commands;
 mod draft;
 mod menu;
+mod storage;
 mod vault;
 mod watcher;
 
@@ -17,6 +18,10 @@ fn main() {
             if let Ok(dir) = app.path().app_data_dir().map(|d| d.join("drafts")) {
                 let _ = draft::gc_old_drafts_in_dir(&dir);
             }
+            app.manage(storage::StdStorage);
+            app.manage(draft::DraftState {
+                write_lock: std::sync::Mutex::new(()),
+            });
             app.manage(watcher::WatcherState {
                 debouncer: std::sync::Mutex::new(None),
                 watched_paths: std::sync::Mutex::new(std::collections::HashSet::new()),

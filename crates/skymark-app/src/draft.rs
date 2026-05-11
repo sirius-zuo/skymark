@@ -4,6 +4,8 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
+use crate::storage::Storage;
+
 /// Global write lock for draft operations to prevent race conditions
 /// between auto-save timer and explicit Cmd+S saves.
 pub struct DraftState {
@@ -46,12 +48,6 @@ fn validate_key(key: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn atomic_write(tmp: &Path, target: &Path, content: &[u8]) -> Result<(), String> {
-    std::fs::write(tmp, content).map_err(|e| format!("write {tmp:?}: {e}"))?;
-    std::fs::rename(tmp, target).map_err(|e| format!("rename to {target:?}: {e}"))?;
-    Ok(())
-}
-
 fn now_unix() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -60,9 +56,8 @@ fn now_unix() -> u64 {
 }
 
 fn file_mtime(path: &str) -> Option<u64> {
-    std::fs::metadata(path)
-        .ok()?
-        .modified()
+    let storage = crate::storage::StdStorage;
+    storage.mtime(Path::new(path))
         .ok()?
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -84,6 +79,7 @@ pub fn save_draft_to_dir(
     std::fs::create_dir_all(drafts_dir)
         .map_err(|e| format!("create drafts dir: {e}"))?;
 
+    let storage = crate::storage::StdStorage;
     let meta = DraftMeta {
         original_path: original_path.map(String::from),
         saved_at_unix: now_unix(),
@@ -91,30 +87,25 @@ pub fn save_draft_to_dir(
     };
     let meta_json = serde_json::to_string(&meta).map_err(|e| format!("meta json: {e}"))?;
 
-    atomic_write(
-        &drafts_dir.join(format!(".{key}.meta.tmp")),
-        &drafts_dir.join(format!("{key}.meta.json")),
-        meta_json.as_bytes(),
-    )?;
-    atomic_write(
-        &drafts_dir.join(format!(".{key}.draft.tmp")),
-        &drafts_dir.join(format!("{key}.draft.md")),
-        content.as_bytes(),
-    )?;
+    storage.write(&drafts_dir.join(format!("{key}.meta.json")), meta_json.as_bytes())?;
+    storage.write(&drafts_dir.join(format!("{key}.draft.md")), content.as_bytes())?;
     Ok(key)
 }
 
 pub fn load_draft_from_dir(drafts_dir: &Path, key: &str) -> Result<String, String> {
     validate_key(key)?;
-    std::fs::read_to_string(drafts_dir.join(format!("{key}.draft.md")))
+    let storage = crate::storage::StdStorage;
+    storage.read(&drafts_dir.join(format!("{key}.draft.md")))
         .map_err(|e| format!("read draft {key}: {e}"))
 }
 
 pub fn discard_draft_from_dir(drafts_dir: &Path, key: &str) -> Result<(), String> {
     validate_key(key)?;
+    let storage = crate::storage::StdStorage;
     for suffix in &[".draft.md", ".meta.json"] {
         let path = drafts_dir.join(format!("{key}{suffix}"));
-        if path.exists() {
+        if storage.exists(&path) {
+            // For deletion, we still need to remove the file directly
             std::fs::remove_file(&path).map_err(|e| format!("remove {suffix}: {e}"))?;
         }
     }
@@ -122,23 +113,23 @@ pub fn discard_draft_from_dir(drafts_dir: &Path, key: &str) -> Result<(), String
 }
 
 pub fn list_drafts_in_dir(drafts_dir: &Path) -> Result<Vec<DraftInfo>, String> {
-    if !drafts_dir.exists() {
+    let storage = crate::storage::StdStorage;
+    if !storage.exists(drafts_dir) {
         return Ok(vec![]);
     }
     let mut infos = Vec::new();
-    for entry in std::fs::read_dir(drafts_dir).map_err(|e| format!("read dir: {e}"))? {
-        let entry = entry.map_err(|e| e.to_string())?;
+    for entry in storage.list(drafts_dir).map_err(|e| format!("read dir: {e}"))? {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.ends_with(".meta.json") {
             continue;
         }
         let key = name.trim_end_matches(".meta.json").to_string();
         // Skip orphaned meta files (draft content missing).
-        if !drafts_dir.join(format!("{key}.draft.md")).exists() {
+        if !storage.exists(&drafts_dir.join(format!("{key}.draft.md"))) {
             continue;
         }
-        let bytes = std::fs::read(entry.path()).map_err(|e| e.to_string())?;
-        let meta: DraftMeta = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        let content = storage.read(&entry.path()).map_err(|e| e.to_string())?;
+        let meta: DraftMeta = serde_json::from_str(&content).map_err(|e| e.to_string())?;
         let needs_resolution = meta.original_path.as_deref().map(|p| {
             let cur = file_mtime(p);
             matches!((meta.source_mtime_unix, cur), (Some(d), Some(c)) if d != c)
@@ -156,19 +147,19 @@ pub fn list_drafts_in_dir(drafts_dir: &Path) -> Result<Vec<DraftInfo>, String> {
 const GC_DAYS: u64 = 30;
 
 pub fn gc_old_drafts_in_dir(drafts_dir: &Path) -> Result<(), String> {
-    if !drafts_dir.exists() {
+    let storage = crate::storage::StdStorage;
+    if !storage.exists(drafts_dir) {
         return Ok(());
     }
     let cutoff = now_unix().saturating_sub(GC_DAYS * 24 * 60 * 60);
-    for entry in std::fs::read_dir(drafts_dir).map_err(|e| format!("gc read dir: {e}"))? {
-        let entry = entry.map_err(|e| e.to_string())?;
+    for entry in storage.list(drafts_dir).map_err(|e| format!("gc read dir: {e}"))? {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.ends_with(".meta.json") {
             continue;
         }
         let key = name.trim_end_matches(".meta.json").to_string();
-        let Ok(bytes) = std::fs::read(entry.path()) else { continue };
-        let Ok(meta) = serde_json::from_slice::<DraftMeta>(&bytes) else { continue };
+        let Ok(content) = storage.read(&entry.path()) else { continue };
+        let Ok(meta) = serde_json::from_str::<DraftMeta>(&content) else { continue };
         if meta.saved_at_unix >= cutoff {
             continue;
         }

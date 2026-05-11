@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
+use crate::storage::Storage;
+
 #[derive(Debug, Serialize)]
 pub struct OpenedFile {
     pub path: String,
@@ -15,7 +17,8 @@ pub fn render(text: String) -> Result<String, String> {
 #[tauri::command]
 pub fn open_file(path: String) -> Result<OpenedFile, String> {
     let validated = validate_markdown_path(&path)?;
-    let content = std::fs::read_to_string(&validated).map_err(|e| format!("read failed: {e}"))?;
+    let storage = crate::storage::StdStorage;
+    let content = storage.read(&validated)?;
     Ok(OpenedFile {
         path: validated.to_string_lossy().into_owned(),
         content,
@@ -25,22 +28,8 @@ pub fn open_file(path: String) -> Result<OpenedFile, String> {
 #[tauri::command]
 pub fn save_file(path: String, content: String) -> Result<(), String> {
     let validated = validate_markdown_path(&path)?;
-    let parent = validated
-        .parent()
-        .ok_or_else(|| "path has no parent directory".to_string())?;
-    std::fs::create_dir_all(parent).map_err(|e| format!("create dir failed: {e}"))?;
-
-    // Atomic write: write to a temp file in the same directory, then rename.
-    let tmp = parent.join(format!(
-        ".{}.tmp",
-        validated
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("skymark-save")
-    ));
-    std::fs::write(&tmp, content.as_bytes()).map_err(|e| format!("write tmp failed: {e}"))?;
-    std::fs::rename(&tmp, &validated).map_err(|e| format!("rename failed: {e}"))?;
-    Ok(())
+    let storage = crate::storage::StdStorage;
+    storage.write(&validated, content.as_bytes())
 }
 
 #[tauri::command]
@@ -53,15 +42,8 @@ pub fn export_file(path: String, content: String) -> Result<(), String> {
         Some(ext) if ext.eq_ignore_ascii_case("html") => {}
         _ => return Err("only .html extension is supported for export".into()),
     }
-    let parent = p.parent().ok_or_else(|| "path has no parent directory".to_string())?;
-    std::fs::create_dir_all(parent).map_err(|e| format!("create dir failed: {e}"))?;
-    let tmp = parent.join(format!(
-        ".{}.tmp",
-        p.file_name().and_then(|s| s.to_str()).unwrap_or("export")
-    ));
-    std::fs::write(&tmp, content.as_bytes()).map_err(|e| format!("write failed: {e}"))?;
-    std::fs::rename(&tmp, &p).map_err(|e| format!("rename failed: {e}"))?;
-    Ok(())
+    let storage = crate::storage::StdStorage;
+    storage.write(&p, content.as_bytes())
 }
 
 // Path validation helper used by Tasks 8 and 9.

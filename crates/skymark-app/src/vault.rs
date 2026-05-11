@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+use crate::storage::Storage;
+
 #[derive(Debug, Serialize, Clone)]
 pub struct VaultFile {
     pub abs_path: String,
@@ -32,9 +34,9 @@ fn collect_files(
     if depth > max_depth {
         return Ok(());
     }
-    let entries = std::fs::read_dir(dir).map_err(|e| format!("read_dir {dir:?}: {e}"))?;
+    let storage = crate::storage::StdStorage;
+    let entries = storage.list(dir)?;
     for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
         let os_name = entry.file_name();
         let name = os_name.to_string_lossy();
         if name.starts_with('.') {

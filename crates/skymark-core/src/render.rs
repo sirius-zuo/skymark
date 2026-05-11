@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+use std::sync::{LazyLock, Mutex};
+
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag};
 use thiserror::Error;
 
@@ -9,15 +12,88 @@ pub enum RenderError {
     Internal(String),
 }
 
+/// Simple LRU cache for render results.
+///
+/// Keyed on FNV-1a content hash. Evicts oldest entries when capacity is exceeded.
+/// Thread-safe via Mutex.
+pub struct RenderCache {
+    max_size: usize,
+    entries: VecDeque<(String, String)>,
+}
+
+impl RenderCache {
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            max_size,
+            entries: VecDeque::with_capacity(max_size),
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<String> {
+        self.entries.iter().find_map(|(k, v)| {
+            if k == key {
+                Some(v.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn insert(&mut self, key: String, value: String) {
+        // Remove existing entry if present
+        self.entries.retain(|(k, _)| k != &key);
+        // Insert at front
+        self.entries.push_front((key, value));
+        // Evict if over capacity
+        if self.entries.len() > self.max_size {
+            self.entries.pop_back();
+        }
+    }
+}
+
+/// Global render cache shared across all render calls.
+pub static RENDER_CACHE: LazyLock<Mutex<RenderCache>> = LazyLock::new(|| {
+    Mutex::new(RenderCache::new(100))
+});
+
+/// Compute FNV-1a hash of input string.
+fn fnv1a_hash(input: &str) -> u64 {
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut hash = FNV_OFFSET;
+    for byte in input.bytes() {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
+
+fn cache_key(input: &str) -> String {
+    format!("{:016x}", fnv1a_hash(input))
+}
+
 /// Convert a Markdown source string to a sanitized HTML fragment.
 ///
 /// Pipeline: pulldown-cmark (CommonMark + GFM extensions) -> HTML buffer -> sanitizer.
 /// Block-level open tags carry a `data-line="N"` attribute (1-based source line)
 /// for editor-preview scroll sync.
+///
+/// Results are cached by content hash to skip re-parsing unchanged content.
 pub fn render_html(markdown: &str) -> Result<String, RenderError> {
     if markdown.is_empty() {
         return Ok(String::new());
     }
+
+    // Check cache first
+    let key = cache_key(markdown);
+    {
+        let cache = RENDER_CACHE.lock().map_err(|e| RenderError::Internal(e.to_string()))?;
+        if let Some(cached) = cache.get(&key) {
+            return Ok(cached);
+        }
+    }
+
+    // Full render pipeline
     let line_starts: Vec<usize> = std::iter::once(0)
         .chain(markdown.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
@@ -33,7 +109,13 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
         }
         html::push_html(&mut html_buf, std::iter::once(event));
     }
-    Ok(sanitize(&html_buf))
+    let result = sanitize(&html_buf);
+
+    // Store in cache
+    let mut cache = RENDER_CACHE.lock().map_err(|e| RenderError::Internal(e.to_string()))?;
+    cache.insert(key, result.clone());
+
+    Ok(result)
 }
 
 fn gfm_options() -> Options {
