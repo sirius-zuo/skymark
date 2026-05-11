@@ -130,39 +130,97 @@ files.clearDirty();
 async function openFileInteractive(): Promise<void> {
   const content = await files.openInteractive();
   if (content === null) return;
-  editor.setValue(content);
-  preview.update(content);
-  files.clearDirty();
-  if (tabs.active && files.state.path) {
-    tabs.updateActive({ absPath: files.state.path, isDirty: false });
+  const newPath = files.state.path!;
+
+  // Determine if the file lives outside the current vault (or no vault is open).
+  const sep = newPath.includes("/") ? "/" : "\\";
+  const parentDir = newPath.slice(0, newPath.lastIndexOf(sep)) || newPath;
+  const inVault = vault.root != null &&
+    (newPath.startsWith(vault.root + "/") || newPath.startsWith(vault.root + "\\"));
+
+  if (!inVault) {
+    // Open the file's parent directory as the new vault.
+    if (isTauri()) void invoke("unwatch_paths");
+    const prevPaths = tabs.entries.map(e => e.absPath);
+    tabs.clearAll();
+    for (const p of prevPaths) headings.remove(p);
+    links.clear();
+
+    const ok = await vault.openFromPath(parentDir);
+    if (ok) {
+      sidebar.hidden = false;
+      sidebarResizer.hidden = false;
+      tabBar.hidden = false;
+      panes.classList.add("vault-mode");
+      localStorage.setItem('skymark:vault-root', parentDir);
+      const savedWidth = localStorage.getItem('skymark:sidebar-width');
+      if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
+      tree.render(vault.files, null);
+    }
+  }
+
+  if (vault.root) {
+    // Switch to the tab if already open, otherwise add a new one.
+    const existing = tabs.entries.findIndex(e => e.absPath === newPath);
+    if (existing !== -1) { switchTab(existing); return; }
+
+    if (tabs.active) {
+      tabs.updateActive({
+        content: editor.getValue(),
+        cursorPos: editor.view.state.selection.main.anchor,
+        scrollTop: editor.view.scrollDOM.scrollTop,
+      });
+    }
+    tabs.addTab(newPath, content);
+    editor.setValue(content);
+    files.clearDirty();
+    tabs.updateActive({ isDirty: false });
+    preview.update(content);
+    updateTitlebar(newPath);
+    reloadBanner.hidden = true;
+    const vf = vault.files.find(f => f.abs_path === newPath);
+    if (vf) {
+      headings.index(vf.abs_path, vf.rel_path, vf.name, content);
+      links.update(vf.abs_path, content, vault.files);
+    }
+    tabs.persist();
     rebindTabBar();
+    tree.setActive(newPath);
+    void watchCurrentTabs();
+  } else {
+    editor.setValue(content);
+    preview.update(content);
+    files.clearDirty();
   }
 }
 
 function startNewDocument(): void {
-  if (tabs.active) {
-    const prevPath = tabs.active.absPath;
-    headings.remove(prevPath);
-    links.remove(prevPath);
-    tabs.forceCloseTab(tabs.activeIdx);
-    const next = tabs.active;
-    if (next) {
-      editor.setValue(next.content);
-      preview.update(next.content);
-      files.clearDirty();
-      updateTitlebar(next.absPath);
-      tree.setActive(next.absPath);
-      reloadBanner.hidden = !next.externallyModified;
-      rebindTabBar();
-      void watchCurrentTabs();
-      return;
+  if (vault.root) {
+    // In vault mode: open a new untitled tab (or switch to existing one).
+    const existingNew = tabs.entries.findIndex(e => e.absPath === "");
+    if (existingNew !== -1) { switchTab(existingNew); return; }
+
+    if (tabs.active) {
+      tabs.updateActive({
+        content: editor.getValue(),
+        cursorPos: editor.view.state.selection.main.anchor,
+        scrollTop: editor.view.scrollDOM.scrollTop,
+      });
     }
+    tabs.addTab("", "");
+    editor.setValue("");
+    files.newDocument();
+    files.clearDirty();
+    tabs.updateActive({ isDirty: false });
+    preview.update("");
+    updateTitlebar(null);
     reloadBanner.hidden = true;
     rebindTabBar();
+  } else {
+    editor.setValue("");
+    preview.update("");
+    files.newDocument();
   }
-  editor.setValue("");
-  preview.update("");
-  files.newDocument();
 }
 
 // ---- Keyboard shortcuts ----------------------------------------------------

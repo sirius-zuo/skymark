@@ -35,6 +35,7 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
   }
 
   function fileBasename(absPath: string): string {
+    if (!absPath) return "Untitled";
     const sep = absPath.includes("\\") ? "\\" : "/";
     const i = absPath.lastIndexOf(sep);
     return i >= 0 ? absPath.slice(i + 1) : absPath;
