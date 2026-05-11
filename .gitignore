@@ -9,8 +9,12 @@ dist/
 
 # Editor / OS
 .DS_Store
+.claude/
 .idea/
 .vscode/
+
+# Docs (local reference only)
+docs/
 
 # Tauri build outputs
 crates/skymark-app/target/
