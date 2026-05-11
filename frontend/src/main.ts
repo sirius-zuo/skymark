@@ -18,6 +18,7 @@ import { initTheme, toggleTheme, onThemeChange } from "./theme";
 import { createExportDropdown } from "./export-dropdown";
 import { checkForUpdate, onUpdateAvailable } from "./update";
 import { createUpdateBanner } from "./update-banner";
+import { createToolbar } from "./toolbar";
 
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
@@ -89,6 +90,13 @@ const editor = createEditor(
 );
 
 onThemeChange(() => { preview.update(editor.getValue()); });
+
+const toolbarEl = document.getElementById("format-toolbar");
+if (toolbarEl) {
+  createToolbar(toolbarEl, editor.view);
+} else {
+  console.error("format-toolbar element not found");
+}
 
 const exportDropdown = createExportDropdown(preview.getContentEl(), () => title.textContent ?? "Untitled");
 exportDropdownRoot.appendChild(exportDropdown.el);
