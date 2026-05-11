@@ -17,6 +17,7 @@ export interface TabHandle {
   activateTab(idx: number): void;
   updateActive(patch: Partial<Pick<TabEntry, 'absPath' | 'content' | 'isDirty' | 'cursorPos' | 'scrollTop' | 'externallyModified'>>): void;
   markExternallyModified(idx: number): void;
+  markDirtyTab(idx: number): void;
   clearAll(): void;
   onActiveChange(listener: (entry: TabEntry | null) => void): void;
   renderBar(container: HTMLElement): void;
@@ -28,6 +29,7 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
   const entries: TabEntry[] = [];
   let activeIdx = -1;
   const listeners: Array<(entry: TabEntry | null) => void> = [];
+  let tabBarContainer: HTMLElement | null = null;
 
   function notify(): void {
     const e = activeIdx >= 0 ? entries[activeIdx] : null;
@@ -97,6 +99,14 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
       if (idx >= 0 && idx < entries.length) entries[idx].externallyModified = true;
     },
 
+    markDirtyTab(idx) {
+      if (!tabBarContainer) return;
+      const btn = tabBarContainer.children[idx] as HTMLElement | undefined;
+      if (btn) {
+        btn.classList.toggle('dirty', entries[idx].isDirty);
+      }
+    },
+
     clearAll() {
       entries.splice(0, entries.length);
       activeIdx = -1;
@@ -108,6 +118,7 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
 
     renderBar(container) {
       container.replaceChildren();
+      tabBarContainer = container;
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         const btn = document.createElement("button");

@@ -171,7 +171,7 @@ const editor = createEditor(
     drafts.onDocChange(files.state.path, () => editor.getValue());
     if (tabs.active) {
       tabs.updateActive({ content: text, isDirty: true });
-      rebindTabBar();
+      tabs.markDirtyTab(tabs.activeIdx);
     }
   },
   [syncExt]
@@ -347,9 +347,21 @@ window.addEventListener("keydown", (e) => {
     if (tabs.active) { e.preventDefault(); void handleCloseTab(tabs.activeIdx); }
   } else if ((e.key === "p" || e.key === "P") && vault.root) {
     e.preventDefault();
+    // Flatten tree to file entries for palette
+    function flattenFiles(nodes: VaultNode[]): VaultFile[] {
+      const result: VaultFile[] = [];
+      for (const n of nodes) {
+        if (n.type === "file") {
+          result.push({ abs_path: n.abs_path, rel_path: n.abs_path.slice(vault.root!.length + 1), name: n.name });
+        } else if (n.type === "dir" && n.children) {
+          result.push(...flattenFiles(n.children));
+        }
+      }
+      return result;
+    }
     palette.show(
-      vault.tree as unknown as VaultFile[],
-      (file: VaultFile) => { void openVaultFile(file as unknown as VaultNode); },
+      flattenFiles(vault.tree),
+      (file: VaultFile) => { void openVaultFile({ type: "file", abs_path: file.abs_path, name: file.name }); },
       headings.getAll(),
       (h) => { void openHeading(h); },
     );
@@ -450,9 +462,18 @@ async function openVault(): Promise<void> {
 
   tree.render(vault.tree, null);
 
-  const autoFile =
-    vault.tree.find(f => /^(index|readme)\.md$/i.test(f.name)) ??
-    vault.tree[0];
+  // Find first markdown file in tree (skip directories)
+  function findFirstFile(nodes: VaultNode[]): VaultNode | null {
+    for (const n of nodes) {
+      if (n.type === "file" && /^(index|readme)\.md$/i.test(n.name)) return n;
+    }
+    for (const n of nodes) {
+      if (n.type === "file") return n;
+    }
+    return null;
+  }
+
+  const autoFile = findFirstFile(vault.tree);
 
   if (!autoFile) {
     showToast("No Markdown files found in this folder");
