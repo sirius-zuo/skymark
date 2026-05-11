@@ -31,6 +31,14 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build frontend (required by Tauri context macro)
+        run: npm ci && npm run build
+
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
