@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Review — skymark Format Toolbar</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    nav {
+      width: 220px;
+      min-width: 220px;
+      background: #fff;
+      border-right: 1px solid #e5e5ea;
+      padding: 2rem 1.25rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    nav h2 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #8e8e93;
+      margin-bottom: 1rem;
+    }
+
+    nav a {
+      display: block;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      color: #3a3a3c;
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      transition: background 0.15s;
+    }
+
+    nav a:hover { background: #f2f2f7; }
+
+    main {
+      flex: 1;
+      padding: 2.5rem 3rem;
+      max-width: 960px;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #e5e5ea;
+    }
+
+    header h1 { font-size: 1.75rem; font-weight: 700; }
+    header p { margin-top: 0.5rem; color: #6e6e73; font-size: 0.95rem; }
+    header .meta { margin-top: 0.75rem; font-size: 0.8rem; color: #8e8e93; }
+
+    section { margin-bottom: 3rem; scroll-margin-top: 2rem; }
+
+    section h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e5e5ea;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .card p { color: #3a3a3c; font-size: 0.9rem; }
+
+    .diagram-card {
+      background: #fff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+
+    .diagram-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .diagram-desc { color: #6e6e73; font-size: 0.85rem; margin-bottom: 1rem; }
+    .mermaid { min-height: 80px; }
+
+    .findings { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .finding {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      padding: 0.875rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .finding.strength { background: #f0faf4; border-left: 3px solid #30d158; }
+    .finding.concern  { background: #fffbf0; border-left: 3px solid #ff9f0a; }
+    .finding.risk     { background: #fff5f5; border-left: 3px solid #ff3b30; }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .badge-strength { background: #30d158; color: #fff; }
+    .badge-concern  { background: #ff9f0a; color: #fff; }
+    .badge-risk     { background: #ff3b30; color: #fff; }
+
+    .finding-text strong { display: block; margin-bottom: 0.2rem; }
+    .finding-text p { color: #3a3a3c; }
+
+    .recommendations ol { padding-left: 1.5rem; }
+    .recommendations li { margin-bottom: 0.75rem; color: #3a3a3c; font-size: 0.9rem; }
+    .recommendations li strong { color: #1d1d1f; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <h2>Architecture Review</h2>
+    <a href="#summary">Executive Summary</a>
+    <a href="#diagrams">Diagrams</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#security">Security</a>
+    <a href="#scalability">Scalability</a>
+    <a href="#reliability">Reliability</a>
+    <a href="#recommendations">Recommendations</a>
+  </nav>
+
+  <main>
+    <header>
+      <h1>skymark — Format Toolbar Design Review</h1>
+      <p>Architecture review of the format toolbar feature for the Skymark Markdown editor.</p>
+      <p class="meta">Generated 2026-05-10 · Design Review</p>
+    </header>
+
+    <section id="summary">
+      <h2>Executive Summary</h2>
+      <div class="card">
+        <p>The format toolbar adds a fixed strip of 16 formatting buttons above the CodeMirror editor in the Skymark Tauri desktop app. Architecturally, the design is clean: a new <code>toolbar.ts</code> module handles DOM construction and event wiring, while three new exported functions in <code>editor.ts</code> (<code>wrapSelection</code>, <code>toggleLinePrefix</code>, <code>insertTemplate</code>) encapsulate all CodeMirror transaction logic. The design is well-suited to the feature's scope — stateless, synchronous, and zero external dependencies — with one minor reliability concern around a missing null guard on element lookup.</p>
+      </div>
+    </section>
+
+    <section id="diagrams">
+      <h2>Architecture Diagrams</h2>
+
+      <div class="diagram-card">
+        <h3>System Context</h3>
+        <p class="diagram-desc">The format toolbar as seen from the outside — who interacts with it and what it connects to.</p>
+        <div class="mermaid">
+graph TB
+  User([User]) --> Toolbar[Format Toolbar]
+  Toolbar --> EditorView[CodeMirror EditorView]
+  EditorView --> Doc[Document State]
+        </div>
+      </div>
+
+      <div class="diagram-card">
+        <h3>Component Diagram</h3>
+        <p class="diagram-desc">Internal components of the format toolbar feature and their dependency relationships.</p>
+        <div class="mermaid">
+graph LR
+  subgraph Skymark Frontend
+    main["main.ts\ninitializes toolbar"] --> toolbar["toolbar.ts\ncreatToolbar(el, view)"]
+    toolbar --> editorFns["editor.ts\nwrapSelection()\ntoggleLinePrefix()\ninsertTemplate()"]
+    toolbar --> DOM["index.html\n#format-toolbar div"]
+    toolbar --> styles["app.css\n.tb-btn / .tb-sep"]
+    editorFns --> CM[CodeMirror EditorView]
+  end
+        </div>
+      </div>
+
+    </section>
+
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Separation of Concerns</strong>
+            <p><code>toolbar.ts</code> owns only DOM construction and event wiring. <code>editor.ts</code> owns only CodeMirror transaction logic. Neither leaks into the other's responsibility, and <code>main.ts</code> is the sole wiring point.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Layered Architecture</strong>
+            <p>Dependencies flow in one direction: <code>main.ts</code> → <code>toolbar.ts</code> → <code>editor.ts</code> → CodeMirror. No reverse dependencies or circular imports.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Minimal API Surface</strong>
+            <p>Only three functions are added to <code>editor.ts</code>'s public API, covering the full range of formatting operations (wrap, prefix-toggle, insert). The three functions are orthogonal and composable — link button is simply <code>wrapSelection("[", "](url)")</code>.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>editor.ts God Module Risk</strong>
+            <p><code>editor.ts</code> is the accumulation point for all editor-related logic. The spec adds three more exported functions without addressing how large the file currently is. As the project continues to grow, this file risks becoming a god module. The spec's "Out of Scope" list keeps v1 small, but the risk should be tracked.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="security">
+      <h2>Security</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>No Injection Risk</strong>
+            <p>All text transformations go through CodeMirror's transaction API (<code>view.dispatch</code>). No use of <code>innerHTML</code>, <code>eval</code>, or raw DOM string injection. Template strings are hardcoded constants, not user-supplied.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>No Auth or Secrets Surface</strong>
+            <p>This is a local desktop feature with no network calls, no credentials, and no external service integration. The OWASP Top 10 categories that involve authentication, secrets, or data exposure are not applicable.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="scalability">
+      <h2>Scalability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Stateless Design</strong>
+            <p><code>toolbar.ts</code> carries no mutable state of its own. All document and cursor state lives in CodeMirror's <code>EditorView</code>. The toolbar is effectively a pure function of user interaction events.</p>
+          </div>
+        </div>
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Bounded Operations</strong>
+            <p>All button operations are O(lines in selection) at worst — appropriate for a text editor. No unbounded loops, no network round-trips, no async work. Performance is not a concern.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="reliability">
+      <h2>Reliability</h2>
+      <div class="findings">
+
+        <div class="finding strength">
+          <span class="badge badge-strength">Strength</span>
+          <div class="finding-text">
+            <strong>Focus Preservation</strong>
+            <p>All buttons use <code>mousedown</code> + <code>e.preventDefault()</code>, which correctly prevents the editor losing focus on click. This is the most common reliability failure in toolbar implementations and is explicitly addressed in the spec.</p>
+          </div>
+        </div>
+
+        <div class="finding concern">
+          <span class="badge badge-concern">Concern</span>
+          <div class="finding-text">
+            <strong>Non-null Assertion on Element Lookup</strong>
+            <p><code>main.ts</code> uses <code>document.getElementById("format-toolbar")!</code> with a non-null assertion. If the element is ever absent (e.g., HTML and JS get out of sync during a build), this throws a runtime exception rather than logging a graceful error. A null check with a console warning would be more resilient.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="recommendations" class="recommendations">
+      <h2>Recommendations</h2>
+      <div class="card">
+        <ol>
+          <li><strong>Guard the createToolbar call</strong> — Replace the <code>!</code> non-null assertion in <code>main.ts</code> with a runtime null check: <code>const el = document.getElementById("format-toolbar"); if (!el) { console.error("format-toolbar element not found"); return; } createToolbar(el, editor.view);</code>. This prevents a silent crash if HTML and JS ever diverge.</li>
+          <li><strong>Track editor.ts size</strong> — After implementation, note the line count of <code>editor.ts</code>. If it exceeds ~300 lines, plan to extract formatting functions into <code>editor-format.ts</code> in the next editing pass. The spec correctly defers this, but it should be on the radar.</li>
+        </ol>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
