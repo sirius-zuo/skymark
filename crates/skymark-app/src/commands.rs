@@ -53,7 +53,9 @@ pub(crate) fn validate_markdown_path(path: &str) -> Result<PathBuf, String> {
         return Err("path must be absolute".into());
     }
     match p.extension().and_then(|e| e.to_str()) {
-        Some(ext) if matches!(ext.to_ascii_lowercase().as_str(), "md" | "markdown" | "txt") => Ok(p),
+        Some(ext) if matches!(ext.to_ascii_lowercase().as_str(), "md" | "markdown" | "txt") => {
+            Ok(p)
+        }
         Some(other) => Err(format!("unsupported extension: {other}")),
         None => Err("path has no extension".into()),
     }
@@ -66,7 +68,10 @@ mod tests {
     #[test]
     fn render_command_round_trips_markdown_to_sanitized_html() {
         let html = render("# Title\n\n<script>alert(1)</script>".into()).unwrap();
-        assert!(html.contains("Title</h1>") && html.contains("<h1 "), "got: {html}");
+        assert!(
+            html.contains("Title</h1>") && html.contains("<h1 "),
+            "got: {html}"
+        );
         assert!(!html.contains("<script>"), "got: {html}");
     }
 
@@ -99,7 +104,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("skymark-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("hello.md");
-        std::fs::File::create(&path).unwrap().write_all(b"# hello\n").unwrap();
+        std::fs::File::create(&path)
+            .unwrap()
+            .write_all(b"# hello\n")
+            .unwrap();
 
         let opened = open_file(path.to_string_lossy().into_owned()).unwrap();
         assert_eq!(opened.path, path.to_string_lossy());
@@ -142,9 +150,8 @@ mod tests {
 
     #[test]
     fn draft_save_and_load_round_trip() {
-        use crate::draft::{save_draft_to_dir, load_draft_from_dir};
-        let dir = std::env::temp_dir()
-            .join(format!("skymark-draft-rtrip-{}", std::process::id()));
+        use crate::draft::{load_draft_from_dir, save_draft_to_dir};
+        let dir = std::env::temp_dir().join(format!("skymark-draft-rtrip-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
 
         let key = save_draft_to_dir(&dir, Some("/tmp/test.md"), "# hello draft\n").unwrap();
@@ -156,9 +163,9 @@ mod tests {
 
     #[test]
     fn draft_discard_removes_both_files() {
-        use crate::draft::{save_draft_to_dir, load_draft_from_dir, discard_draft_from_dir};
-        let dir = std::env::temp_dir()
-            .join(format!("skymark-draft-discard-{}", std::process::id()));
+        use crate::draft::{discard_draft_from_dir, load_draft_from_dir, save_draft_to_dir};
+        let dir =
+            std::env::temp_dir().join(format!("skymark-draft-discard-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
 
         let key = save_draft_to_dir(&dir, Some("/tmp/test.md"), "content").unwrap();
@@ -178,9 +185,10 @@ mod tests {
 
     #[test]
     fn draft_gc_removes_old_drafts() {
-        use crate::draft::{save_draft_to_dir, load_draft_from_dir, gc_old_drafts_in_dir, DraftMeta};
-        let dir = std::env::temp_dir()
-            .join(format!("skymark-draft-gc-{}", std::process::id()));
+        use crate::draft::{
+            gc_old_drafts_in_dir, load_draft_from_dir, save_draft_to_dir, DraftMeta,
+        };
+        let dir = std::env::temp_dir().join(format!("skymark-draft-gc-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
 
         let key = save_draft_to_dir(&dir, None, "old content").unwrap();
@@ -192,12 +200,19 @@ mod tests {
             .unwrap()
             .as_secs()
             .saturating_sub(31 * 24 * 60 * 60);
-        let meta = DraftMeta { original_path: None, saved_at_unix: old_unix, source_mtime_unix: None };
+        let meta = DraftMeta {
+            original_path: None,
+            saved_at_unix: old_unix,
+            source_mtime_unix: None,
+        };
         let json = serde_json::to_string(&meta).unwrap();
         std::fs::write(&meta_path, json.as_bytes()).unwrap();
 
         gc_old_drafts_in_dir(&dir).unwrap();
-        assert!(load_draft_from_dir(&dir, &key).is_err(), "old draft should be GC'd");
+        assert!(
+            load_draft_from_dir(&dir, &key).is_err(),
+            "old draft should be GC'd"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -221,13 +236,19 @@ mod tests {
     fn export_file_rejects_relative_path() {
         let result = export_file("relative/out.html".into(), "x".into());
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("absolute"), "error should mention absolute");
+        assert!(
+            result.unwrap_err().contains("absolute"),
+            "error should mention absolute"
+        );
     }
 
     #[test]
     fn export_file_rejects_non_html_extension() {
         let result = export_file("/tmp/out.pdf".into(), "x".into());
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("html"), "error should mention html");
+        assert!(
+            result.unwrap_err().contains("html"),
+            "error should mention html"
+        );
     }
 }

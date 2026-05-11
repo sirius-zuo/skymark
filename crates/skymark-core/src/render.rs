@@ -30,13 +30,9 @@ impl RenderCache {
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
-        self.entries.iter().find_map(|(k, v)| {
-            if k == key {
-                Some(v.clone())
-            } else {
-                None
-            }
-        })
+        self.entries
+            .iter()
+            .find_map(|(k, v)| if k == key { Some(v.clone()) } else { None })
     }
 
     pub fn insert(&mut self, key: String, value: String) {
@@ -52,9 +48,8 @@ impl RenderCache {
 }
 
 /// Global render cache shared across all render calls.
-pub static RENDER_CACHE: LazyLock<Mutex<RenderCache>> = LazyLock::new(|| {
-    Mutex::new(RenderCache::new(100))
-});
+pub static RENDER_CACHE: LazyLock<Mutex<RenderCache>> =
+    LazyLock::new(|| Mutex::new(RenderCache::new(100)));
 
 /// Compute FNV-1a hash of input string.
 fn fnv1a_hash(input: &str) -> u64 {
@@ -87,7 +82,9 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
     // Check cache first
     let key = cache_key(markdown);
     {
-        let cache = RENDER_CACHE.lock().map_err(|e| RenderError::Internal(e.to_string()))?;
+        let cache = RENDER_CACHE
+            .lock()
+            .map_err(|e| RenderError::Internal(e.to_string()))?;
         if let Some(cached) = cache.get(&key) {
             return Ok(cached);
         }
@@ -112,7 +109,9 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
     let result = sanitize(&html_buf);
 
     // Store in cache
-    let mut cache = RENDER_CACHE.lock().map_err(|e| RenderError::Internal(e.to_string()))?;
+    let mut cache = RENDER_CACHE
+        .lock()
+        .map_err(|e| RenderError::Internal(e.to_string()))?;
     cache.insert(key, result.clone());
 
     Ok(result)

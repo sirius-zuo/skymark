@@ -1,3 +1,4 @@
+/// <reference types="node" />
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}

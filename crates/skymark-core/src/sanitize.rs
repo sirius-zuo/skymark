@@ -19,13 +19,33 @@ fn builder() -> Builder<'static> {
 
     let tags: HashSet<&'static str> = [
         // block
-        "p", "h1", "h2", "h3", "h4", "h5", "h6",
-        "ul", "ol", "li", "blockquote",
-        "pre", "code",
-        "table", "thead", "tbody", "tr", "th", "td",
-        "hr", "br",
+        "p",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "pre",
+        "code",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "hr",
+        "br",
         // inline
-        "em", "strong", "del", "a", "img",
+        "em",
+        "strong",
+        "del",
+        "a",
+        "img",
         "input",
         // KaTeX/Mermaid hooks - Phase 4 fills these in. Keep `span` allowed
         // so the future math/code-highlighter wrappers slot in without a
@@ -39,7 +59,10 @@ fn builder() -> Builder<'static> {
     let mut tag_attrs: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
     tag_attrs.insert("a", ["href", "title"].into_iter().collect());
     tag_attrs.insert("img", ["src", "alt", "title"].into_iter().collect());
-    tag_attrs.insert("input", ["type", "checked", "disabled"].into_iter().collect());
+    tag_attrs.insert(
+        "input",
+        ["type", "checked", "disabled"].into_iter().collect(),
+    );
     tag_attrs.insert("th", ["align"].into_iter().collect());
     tag_attrs.insert("td", ["align"].into_iter().collect());
     tag_attrs.insert("code", ["class"].into_iter().collect());

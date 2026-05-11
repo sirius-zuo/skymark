@@ -57,7 +57,8 @@ fn now_unix() -> u64 {
 
 fn file_mtime(path: &str) -> Option<u64> {
     let storage = crate::storage::StdStorage;
-    storage.mtime(Path::new(path))
+    storage
+        .mtime(Path::new(path))
         .ok()?
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -76,8 +77,7 @@ pub fn save_draft_to_dir(
         Some(p) => fnv1a(p),
         None => format!("unsaved_{}", now_unix()),
     };
-    std::fs::create_dir_all(drafts_dir)
-        .map_err(|e| format!("create drafts dir: {e}"))?;
+    std::fs::create_dir_all(drafts_dir).map_err(|e| format!("create drafts dir: {e}"))?;
 
     let storage = crate::storage::StdStorage;
     let meta = DraftMeta {
@@ -87,15 +87,22 @@ pub fn save_draft_to_dir(
     };
     let meta_json = serde_json::to_string(&meta).map_err(|e| format!("meta json: {e}"))?;
 
-    storage.write(&drafts_dir.join(format!("{key}.meta.json")), meta_json.as_bytes())?;
-    storage.write(&drafts_dir.join(format!("{key}.draft.md")), content.as_bytes())?;
+    storage.write(
+        &drafts_dir.join(format!("{key}.meta.json")),
+        meta_json.as_bytes(),
+    )?;
+    storage.write(
+        &drafts_dir.join(format!("{key}.draft.md")),
+        content.as_bytes(),
+    )?;
     Ok(key)
 }
 
 pub fn load_draft_from_dir(drafts_dir: &Path, key: &str) -> Result<String, String> {
     validate_key(key)?;
     let storage = crate::storage::StdStorage;
-    storage.read(&drafts_dir.join(format!("{key}.draft.md")))
+    storage
+        .read(&drafts_dir.join(format!("{key}.draft.md")))
         .map_err(|e| format!("read draft {key}: {e}"))
 }
 
@@ -118,7 +125,10 @@ pub fn list_drafts_in_dir(drafts_dir: &Path) -> Result<Vec<DraftInfo>, String> {
         return Ok(vec![]);
     }
     let mut infos = Vec::new();
-    for entry in storage.list(drafts_dir).map_err(|e| format!("read dir: {e}"))? {
+    for entry in storage
+        .list(drafts_dir)
+        .map_err(|e| format!("read dir: {e}"))?
+    {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.ends_with(".meta.json") {
             continue;
@@ -130,10 +140,14 @@ pub fn list_drafts_in_dir(drafts_dir: &Path) -> Result<Vec<DraftInfo>, String> {
         }
         let content = storage.read(&entry.path()).map_err(|e| e.to_string())?;
         let meta: DraftMeta = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-        let needs_resolution = meta.original_path.as_deref().map(|p| {
-            let cur = file_mtime(p);
-            matches!((meta.source_mtime_unix, cur), (Some(d), Some(c)) if d != c)
-        }).unwrap_or(false);
+        let needs_resolution = meta
+            .original_path
+            .as_deref()
+            .map(|p| {
+                let cur = file_mtime(p);
+                matches!((meta.source_mtime_unix, cur), (Some(d), Some(c)) if d != c)
+            })
+            .unwrap_or(false);
         infos.push(DraftInfo {
             draft_key: key,
             original_path: meta.original_path,
@@ -152,22 +166,33 @@ pub fn gc_old_drafts_in_dir(drafts_dir: &Path) -> Result<(), String> {
         return Ok(());
     }
     let cutoff = now_unix().saturating_sub(GC_DAYS * 24 * 60 * 60);
-    for entry in storage.list(drafts_dir).map_err(|e| format!("gc read dir: {e}"))? {
+    for entry in storage
+        .list(drafts_dir)
+        .map_err(|e| format!("gc read dir: {e}"))?
+    {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.ends_with(".meta.json") {
             continue;
         }
         let key = name.trim_end_matches(".meta.json").to_string();
-        let Ok(content) = storage.read(&entry.path()) else { continue };
-        let Ok(meta) = serde_json::from_str::<DraftMeta>(&content) else { continue };
+        let Ok(content) = storage.read(&entry.path()) else {
+            continue;
+        };
+        let Ok(meta) = serde_json::from_str::<DraftMeta>(&content) else {
+            continue;
+        };
         if meta.saved_at_unix >= cutoff {
             continue;
         }
         // Only GC when source file is unchanged or absent (gone = no longer relevant).
-        let safe = meta.original_path.as_deref().map(|p| {
-            let cur = file_mtime(p);
-            !matches!((meta.source_mtime_unix, cur), (Some(d), Some(c)) if d != c)
-        }).unwrap_or(true);
+        let safe = meta
+            .original_path
+            .as_deref()
+            .map(|p| {
+                let cur = file_mtime(p);
+                !matches!((meta.source_mtime_unix, cur), (Some(d), Some(c)) if d != c)
+            })
+            .unwrap_or(true);
         if safe {
             let _ = discard_draft_from_dir(drafts_dir, &key);
         }
@@ -192,7 +217,10 @@ pub fn save_draft(
     content: String,
 ) -> Result<DraftKey, String> {
     // Serialize draft writes to prevent race conditions with explicit saves
-    let _lock = state.write_lock.lock().map_err(|e| format!("draft lock: {e}"))?;
+    let _lock = state
+        .write_lock
+        .lock()
+        .map_err(|e| format!("draft lock: {e}"))?;
     save_draft_to_dir(&app_drafts_dir(&app)?, path.as_deref(), &content)
 }
 

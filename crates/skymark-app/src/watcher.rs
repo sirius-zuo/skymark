@@ -1,5 +1,5 @@
 use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_mini::{new_debouncer, Debouncer, DebounceEventResult};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use std::collections::HashSet;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
@@ -12,11 +12,15 @@ pub struct WatcherState {
 
 impl WatcherState {
     fn debouncer(&self) -> Result<MutexGuard<'_, Option<Debouncer<RecommendedWatcher>>>, String> {
-        self.debouncer.lock().map_err(|e| format!("watcher lock: {e}"))
+        self.debouncer
+            .lock()
+            .map_err(|e| format!("watcher lock: {e}"))
     }
-    
+
     fn watched_paths(&self) -> Result<MutexGuard<'_, HashSet<String>>, String> {
-        self.watched_paths.lock().map_err(|e| format!("watched_paths lock: {e}"))
+        self.watched_paths
+            .lock()
+            .map_err(|e| format!("watched_paths lock: {e}"))
     }
 }
 
@@ -34,7 +38,7 @@ pub fn add_watch(
             return Ok(()); // Already watching, idempotent
         }
     }
-    
+
     let app_clone = app.clone();
     let mut debouncer = new_debouncer(
         Duration::from_millis(500),
@@ -51,10 +55,7 @@ pub fn add_watch(
 
     debouncer
         .watcher()
-        .watch(
-            std::path::Path::new(&path),
-            RecursiveMode::NonRecursive,
-        )
+        .watch(std::path::Path::new(&path), RecursiveMode::NonRecursive)
         .map_err(|e| e.to_string())?;
 
     // Register the path and swap debouncer
@@ -68,10 +69,7 @@ pub fn add_watch(
 
 /// Remove a single path from watching.
 #[tauri::command]
-pub fn remove_watch(
-    path: String,
-    state: tauri::State<WatcherState>,
-) -> Result<(), String> {
+pub fn remove_watch(path: String, state: tauri::State<WatcherState>) -> Result<(), String> {
     // Remove from tracked paths
     {
         let mut watched = state.watched_paths().map_err(|e| e.to_string())?;
@@ -98,7 +96,7 @@ mod tests {
             debouncer: Mutex::new(None),
             watched_paths: Mutex::new(HashSet::new()),
         };
-        
+
         // Simulate adding a path (without actually creating a watcher)
         let mut watched = state.watched_paths().unwrap();
         watched.insert("/tmp/test".to_string());
@@ -111,7 +109,7 @@ mod tests {
             debouncer: Mutex::new(None),
             watched_paths: Mutex::new(HashSet::new()),
         };
-        
+
         let mut watched = state.watched_paths().unwrap();
         watched.insert("/tmp/test".to_string());
         watched.remove("/tmp/test");
@@ -124,12 +122,12 @@ mod tests {
             debouncer: Mutex::new(None),
             watched_paths: Mutex::new(HashSet::new()),
         };
-        
+
         let mut watched = state.watched_paths().unwrap();
         watched.insert("/tmp/a".to_string());
         watched.insert("/tmp/b".to_string());
         watched.insert("/tmp/c".to_string());
-        
+
         watched.clear();
         assert!(watched.is_empty());
     }

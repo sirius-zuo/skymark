@@ -92,8 +92,8 @@ mod tests {
     use std::fs;
 
     fn tmpdir(label: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("skymark-vault-{}-{}", label, std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("skymark-vault-{}-{}", label, std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

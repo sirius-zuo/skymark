@@ -11,8 +11,7 @@ pub enum ContinueAction {
 /// Given the text of the current editor line, return how Enter should behave.
 /// Returns `None` when the line is not a list item or blockquote.
 pub fn continue_list(line: &str) -> Option<ContinueAction> {
-    let indent_len = line.len()
-        - line.trim_start_matches([' ', '\t']).len();
+    let indent_len = line.len() - line.trim_start_matches([' ', '\t']).len();
     let indent = &line[..indent_len];
     let rest = &line[indent_len..];
 
@@ -22,9 +21,14 @@ pub fn continue_list(line: &str) -> Option<ContinueAction> {
         if let Some(after) = rest.strip_prefix(marker.as_str()) {
             let content = after.trim_end();
             if content.is_empty() {
-                return Some(ContinueAction::Cancel { remove_chars: indent_len + 2 });
+                return Some(ContinueAction::Cancel {
+                    remove_chars: indent_len + 2,
+                });
             }
-            let continuation = if after.starts_with("[ ] ") || after.starts_with("[x] ") || after.starts_with("[X] ") {
+            let continuation = if after.starts_with("[ ] ")
+                || after.starts_with("[x] ")
+                || after.starts_with("[X] ")
+            {
                 format!("{indent}{bullet} [ ] ")
             } else {
                 format!("{indent}{bullet} ")
@@ -34,12 +38,16 @@ pub fn continue_list(line: &str) -> Option<ContinueAction> {
     }
 
     // Ordered list: one-or-more digits followed by ". "
-    let digit_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let digit_end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
     if digit_end > 0 {
         if let Some(after_dot) = rest[digit_end..].strip_prefix(". ") {
             if let Ok(n) = rest[..digit_end].parse::<u64>() {
                 if after_dot.trim_end().is_empty() {
-                    return Some(ContinueAction::Cancel { remove_chars: indent_len + digit_end + 2 });
+                    return Some(ContinueAction::Cancel {
+                        remove_chars: indent_len + digit_end + 2,
+                    });
                 }
                 return Some(ContinueAction::Continue(format!("{indent}{}. ", n + 1)));
             }
@@ -49,12 +57,16 @@ pub fn continue_list(line: &str) -> Option<ContinueAction> {
     // Blockquote: "> "
     if let Some(after) = rest.strip_prefix("> ") {
         if after.trim_end().is_empty() {
-            return Some(ContinueAction::Cancel { remove_chars: indent_len + 2 });
+            return Some(ContinueAction::Cancel {
+                remove_chars: indent_len + 2,
+            });
         }
         return Some(ContinueAction::Continue(format!("{indent}> ")));
     }
     if rest == ">" {
-        return Some(ContinueAction::Cancel { remove_chars: indent_len + 1 });
+        return Some(ContinueAction::Cancel {
+            remove_chars: indent_len + 1,
+        });
     }
 
     None
@@ -74,32 +86,50 @@ mod tests {
 
     #[test]
     fn unordered_bullet_continues() {
-        assert_eq!(continue_list("- hello"), Some(ContinueAction::Continue("- ".into())));
+        assert_eq!(
+            continue_list("- hello"),
+            Some(ContinueAction::Continue("- ".into()))
+        );
     }
 
     #[test]
     fn unordered_bullet_with_indent_continues() {
-        assert_eq!(continue_list("  - hello"), Some(ContinueAction::Continue("  - ".into())));
+        assert_eq!(
+            continue_list("  - hello"),
+            Some(ContinueAction::Continue("  - ".into()))
+        );
     }
 
     #[test]
     fn unordered_bullet_star_continues() {
-        assert_eq!(continue_list("* text"), Some(ContinueAction::Continue("* ".into())));
+        assert_eq!(
+            continue_list("* text"),
+            Some(ContinueAction::Continue("* ".into()))
+        );
     }
 
     #[test]
     fn unordered_bullet_plus_continues() {
-        assert_eq!(continue_list("+ text"), Some(ContinueAction::Continue("+ ".into())));
+        assert_eq!(
+            continue_list("+ text"),
+            Some(ContinueAction::Continue("+ ".into()))
+        );
     }
 
     #[test]
     fn empty_bullet_cancels() {
-        assert_eq!(continue_list("- "), Some(ContinueAction::Cancel { remove_chars: 2 }));
+        assert_eq!(
+            continue_list("- "),
+            Some(ContinueAction::Cancel { remove_chars: 2 })
+        );
     }
 
     #[test]
     fn indented_empty_bullet_cancels_with_correct_offset() {
-        assert_eq!(continue_list("  - "), Some(ContinueAction::Cancel { remove_chars: 4 }));
+        assert_eq!(
+            continue_list("  - "),
+            Some(ContinueAction::Cancel { remove_chars: 4 })
+        );
     }
 
     #[test]
@@ -120,8 +150,14 @@ mod tests {
 
     #[test]
     fn ordered_list_increments() {
-        assert_eq!(continue_list("1. first"), Some(ContinueAction::Continue("2. ".into())));
-        assert_eq!(continue_list("9. ninth"), Some(ContinueAction::Continue("10. ".into())));
+        assert_eq!(
+            continue_list("1. first"),
+            Some(ContinueAction::Continue("2. ".into()))
+        );
+        assert_eq!(
+            continue_list("9. ninth"),
+            Some(ContinueAction::Continue("10. ".into()))
+        );
     }
 
     #[test]
@@ -134,17 +170,26 @@ mod tests {
 
     #[test]
     fn empty_ordered_item_cancels() {
-        assert_eq!(continue_list("1. "), Some(ContinueAction::Cancel { remove_chars: 3 }));
+        assert_eq!(
+            continue_list("1. "),
+            Some(ContinueAction::Cancel { remove_chars: 3 })
+        );
     }
 
     #[test]
     fn blockquote_continues() {
-        assert_eq!(continue_list("> hello"), Some(ContinueAction::Continue("> ".into())));
+        assert_eq!(
+            continue_list("> hello"),
+            Some(ContinueAction::Continue("> ".into()))
+        );
     }
 
     #[test]
     fn empty_blockquote_cancels() {
-        assert_eq!(continue_list("> "), Some(ContinueAction::Cancel { remove_chars: 2 }));
+        assert_eq!(
+            continue_list("> "),
+            Some(ContinueAction::Cancel { remove_chars: 2 })
+        );
     }
 
     #[test]

@@ -27,13 +27,11 @@ fn main() {
                 watched_paths: std::sync::Mutex::new(std::collections::HashSet::new()),
             });
 
-            app.on_menu_event(|app, event| {
-                match event.id().as_ref() {
-                    "new-file" | "open-file" | "open-folder" | "save-file" | "find" => {
-                        let _ = app.emit("skymark://menu", event.id().as_ref());
-                    }
-                    _ => {}
+            app.on_menu_event(|app, event| match event.id().as_ref() {
+                "new-file" | "open-file" | "open-folder" | "save-file" | "find" => {
+                    let _ = app.emit("skymark://menu", event.id().as_ref());
                 }
+                _ => {}
             });
 
             menu::build_menu(app)?;

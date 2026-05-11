@@ -16,9 +16,18 @@ fn renders_paragraph() {
 fn renders_heading_levels() {
     let md = "# H1\n\n## H2\n\n### H3";
     let html = render_html(md).unwrap();
-    assert!(html.contains("H1</h1>") && html.contains("<h1 "), "got: {html}");
-    assert!(html.contains("H2</h2>") && html.contains("<h2 "), "got: {html}");
-    assert!(html.contains("H3</h3>") && html.contains("<h3 "), "got: {html}");
+    assert!(
+        html.contains("H1</h1>") && html.contains("<h1 "),
+        "got: {html}"
+    );
+    assert!(
+        html.contains("H2</h2>") && html.contains("<h2 "),
+        "got: {html}"
+    );
+    assert!(
+        html.contains("H3</h3>") && html.contains("<h3 "),
+        "got: {html}"
+    );
 }
 
 #[test]
@@ -59,7 +68,10 @@ fn renders_gfm_table() {
     let html = render_html(md).unwrap();
     assert!(html.contains("<table "), "got: {html}");
     assert!(html.contains("<th>a</th>"), "got: {html}");
-    assert!(html.contains("1") && html.contains("<tbody>"), "got: {html}");
+    assert!(
+        html.contains("1") && html.contains("<tbody>"),
+        "got: {html}"
+    );
 }
 
 #[test]
@@ -73,7 +85,10 @@ fn renders_gfm_tasklist() {
     let md = "- [ ] open\n- [x] done";
     let html = render_html(md).unwrap();
     assert!(html.contains("type=\"checkbox\""), "got: {html}");
-    assert!(html.matches("type=\"checkbox\"").count() >= 2, "got: {html}");
+    assert!(
+        html.matches("type=\"checkbox\"").count() >= 2,
+        "got: {html}"
+    );
     assert!(html.contains("checked"), "got: {html}");
 }
 
