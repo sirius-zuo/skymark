@@ -15,6 +15,13 @@
         <span class="dirty-indicator" id="dirty-indicator" hidden>&#x25CF;</span>
         <span style="flex:1"></span>
         <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">&#x1F319;</button>
+        <button id="settings-btn" class="settings-btn" aria-label="Settings">⚙</button>
+        <div id="settings-dropdown" class="settings-dropdown" hidden>
+            <label>
+                Scan depth
+                <input type="number" id="settings-depth" min="1" max="10" value="2" />
+            </label>
+        </div>
         <div id="export-dropdown-root"></div>
         <button id="update-check-btn" class="update-check-btn" aria-label="Check for updates" hidden>&#x2191;</button>
       </header>

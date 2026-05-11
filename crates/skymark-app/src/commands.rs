@@ -251,4 +251,10 @@ mod tests {
             "error should mention html"
         );
     }
+
+    #[test]
+    fn scan_subdir_requires_absolute_path() {
+        let result = crate::vault::scan_subdir("relative/path".into(), 2);
+        assert!(result.is_err());
+    }
 }
