@@ -91,11 +91,11 @@ export function toggleLinePrefix(view: EditorView, prefix: string, group?: strin
   const changes: Array<{ from: number; to: number; insert: string }> = [];
 
   for (const l of lines) {
-    const leading = leadingGroupPrefix(l.text, effectiveGroup);
     if (allHavePrefix) {
       changes.push({ from: l.from, to: l.from + prefix.length, insert: "" });
       continue;
     }
+    const leading = leadingGroupPrefix(l.text, effectiveGroup);
     if (leading === prefix) continue; // already has this exact prefix, skip
     const removeLen = leading ? leading.length : 0;
     changes.push({ from: l.from, to: l.from + removeLen, insert: prefix });
