@@ -43,7 +43,7 @@ export interface EditorHandle {
 
 export type DocChangeListener = (text: string) => void;
 
-function wrapSelection(view: EditorView, prefix: string, suffix: string): boolean {
+export function wrapSelection(view: EditorView, prefix: string, suffix: string): boolean {
   const { state } = view;
   const changes = state.changeByRange((range) => {
     if (range.empty) {
@@ -60,6 +60,53 @@ function wrapSelection(view: EditorView, prefix: string, suffix: string): boolea
   });
   view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
   return true;
+}
+
+export function toggleLinePrefix(view: EditorView, prefix: string, group?: string[]): void {
+  const { state } = view;
+  const sel = state.selection.main;
+  const fromLine = state.doc.lineAt(sel.from);
+  const toLine = state.doc.lineAt(sel.to);
+
+  const lines: Array<{ from: number; text: string }> = [];
+  for (let n = fromLine.number; n <= toLine.number; n++) {
+    const l = state.doc.line(n);
+    lines.push({ from: l.from, text: l.text });
+  }
+
+  const allHavePrefix = lines.every((l) => l.text.startsWith(prefix));
+  const changes: Array<{ from: number; to: number; insert: string }> = [];
+
+  for (const l of lines) {
+    if (allHavePrefix) {
+      changes.push({ from: l.from, to: l.from + prefix.length, insert: "" });
+      continue;
+    }
+    if (l.text.startsWith(prefix)) continue; // already has this prefix, skip
+    let removeLen = 0;
+    if (group) {
+      for (const g of group) {
+        if (l.text.startsWith(g)) { removeLen = g.length; break; }
+      }
+    }
+    changes.push({ from: l.from, to: l.from + removeLen, insert: prefix });
+  }
+
+  if (changes.length > 0) {
+    view.dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input" }));
+  }
+}
+
+export function insertTemplate(view: EditorView, template: string, cursorOffset?: number): void {
+  const { state } = view;
+  const changes = state.changeByRange((range) => {
+    const anchor = range.from + (cursorOffset ?? template.length);
+    return {
+      changes: { from: range.from, to: range.to, insert: template },
+      range: EditorSelection.cursor(anchor),
+    };
+  });
+  view.dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
 }
 
 function listContinuationEnter(view: EditorView): boolean {
