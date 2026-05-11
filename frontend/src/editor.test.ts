@@ -55,6 +55,30 @@ describe("toggleLinePrefix", () => {
     toggleLinePrefix(view, "- ");
     expect(view.state.doc.toString()).toBe("- first\n- second");
   });
+
+  it("replaces H2 prefix with H1 (longer prefix replaced with shorter)", () => {
+    const view = makeView("## hello");
+    toggleLinePrefix(view, "# ", ["# ", "## ", "### "]);
+    expect(view.state.doc.toString()).toBe("# hello");
+  });
+
+  it("replaces H3 prefix with H1", () => {
+    const view = makeView("### hello");
+    toggleLinePrefix(view, "# ", ["# ", "## ", "### "]);
+    expect(view.state.doc.toString()).toBe("# hello");
+  });
+
+  it("does not mistake task list for bullet (longer group prefix wins)", () => {
+    const view = makeView("- [ ] task");
+    toggleLinePrefix(view, "- ", ["- ", "1. ", "- [ ] "]);
+    expect(view.state.doc.toString()).toBe("- task");
+  });
+
+  it("replaces bullet with task list", () => {
+    const view = makeView("- item");
+    toggleLinePrefix(view, "- [ ] ", ["- ", "1. ", "- [ ] "]);
+    expect(view.state.doc.toString()).toBe("- [ ] item");
+  });
 });
 
 describe("insertTemplate", () => {

@@ -62,6 +62,16 @@ export function wrapSelection(view: EditorView, prefix: string, suffix: string):
   return true;
 }
 
+function leadingGroupPrefix(text: string, group: string[]): string | null {
+  let best: string | null = null;
+  for (const g of group) {
+    if (text.startsWith(g) && (best === null || g.length > best.length)) {
+      best = g;
+    }
+  }
+  return best;
+}
+
 export function toggleLinePrefix(view: EditorView, prefix: string, group?: string[]): void {
   const { state } = view;
   const sel = state.selection.main;
@@ -74,21 +84,20 @@ export function toggleLinePrefix(view: EditorView, prefix: string, group?: strin
     lines.push({ from: l.from, text: l.text });
   }
 
-  const allHavePrefix = lines.every((l) => l.text.startsWith(prefix));
+  const effectiveGroup = group ?? [prefix];
+  const allHavePrefix = lines.every(
+    (l) => leadingGroupPrefix(l.text, effectiveGroup) === prefix
+  );
   const changes: Array<{ from: number; to: number; insert: string }> = [];
 
   for (const l of lines) {
+    const leading = leadingGroupPrefix(l.text, effectiveGroup);
     if (allHavePrefix) {
       changes.push({ from: l.from, to: l.from + prefix.length, insert: "" });
       continue;
     }
-    if (l.text.startsWith(prefix)) continue; // already has this prefix, skip
-    let removeLen = 0;
-    if (group) {
-      for (const g of group) {
-        if (l.text.startsWith(g)) { removeLen = g.length; break; }
-      }
-    }
+    if (leading === prefix) continue; // already has this exact prefix, skip
+    const removeLen = leading ? leading.length : 0;
     changes.push({ from: l.from, to: l.from + removeLen, insert: prefix });
   }
 
