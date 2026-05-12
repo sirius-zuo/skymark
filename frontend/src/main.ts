@@ -481,13 +481,12 @@ function doPrint(mode: "preview" | "source"): void {
   document.body.appendChild(iframe);
 
   const iframeDoc = iframe.contentDocument!;
-  iframeDoc.open();
-  iframeDoc.write("<!doctype html><html><head>" +
-    "<style>body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
+  const style = iframeDoc.createElement("style");
+  style.textContent =
+    "body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
     "pre{white-space:pre-wrap;word-wrap:break-word;font-family:monospace}" +
-    "img{max-width:100%}</style>" +
-    "</head><body></body></html>");
-  iframeDoc.close();
+    "img{max-width:100%}";
+  iframeDoc.head.appendChild(style);
 
   if (mode === "preview") {
     const clone = iframeDoc.adoptNode(preview.getContentEl().cloneNode(true)) as HTMLElement;
