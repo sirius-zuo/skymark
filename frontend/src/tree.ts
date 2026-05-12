@@ -1,102 +1,93 @@
-import { VaultNode } from "./vault";
+import { VaultFile } from "./vault";
 
 export interface TreeHandle {
-  render(nodes: VaultNode[], activeAbsPath: string | null): void;
+  render(files: VaultFile[], activeAbsPath: string | null): void;
   setActive(absPath: string): void;
-  onLazyLoad(callback: (absPath: string) => void): void;
 }
 
 export function createTree(
   container: HTMLElement,
-  onSelect: (file: VaultNode) => void,
+  onSelect: (file: VaultFile) => void,
   getBrokenFiles?: () => Set<string>,
 ): TreeHandle {
-  const collapsed = new Map<string, boolean>();
-  let currentNodes: VaultNode[] = [];
+  const collapsed = new Set<string>();
+  let currentFiles: VaultFile[] = [];
   let currentActive: string | null = null;
-  let lazyLoadCallback: ((absPath: string) => void) | null = null;
 
   function rerender(): void {
-    const ul = document.createElement("ul");
-    for (const node of currentNodes) {
-      ul.appendChild(renderNode(node, 0));
-    }
-    container.replaceChildren(ul);
-  }
+    const rootFiles: VaultFile[] = [];
+    const dirMap = new Map<string, VaultFile[]>();
 
-  function renderNode(node: VaultNode, depth: number): HTMLElement {
-    const li = document.createElement("li");
-
-    if (node.type === "file") {
-      const span = document.createElement("span");
-      span.classList.add("tree-file");
-      if (node.abs_path === currentActive) span.classList.add("active");
-      span.textContent = node.name;
-      span.title = node.abs_path;
-      span.addEventListener("click", () => onSelect(node));
-      li.appendChild(span);
-
-      if (getBrokenFiles && getBrokenFiles().has(node.abs_path)) {
-        const badge = document.createElement("span");
-        badge.className = "tree-badge-broken";
-        badge.title = "Contains broken links";
-        badge.textContent = "⚠";
-        li.appendChild(badge);
+    for (const f of currentFiles) {
+      const slash = f.rel_path.indexOf("/");
+      if (slash === -1) {
+        rootFiles.push(f);
+      } else {
+        const dir = f.rel_path.slice(0, slash);
+        if (!dirMap.has(dir)) dirMap.set(dir, []);
+        dirMap.get(dir)!.push(f);
       }
-    } else {
-      // Directory node
+    }
+
+    const ul = document.createElement("ul");
+    for (const f of rootFiles) ul.appendChild(makeFileItem(f));
+
+    const sortedDirs = [...dirMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [dir, dirFiles] of sortedDirs) {
+      const li = document.createElement("li");
       const toggle = document.createElement("span");
       toggle.className = "tree-dir-toggle";
-      const isCollapsed = collapsed.get(node.abs_path) ?? false;
-      toggle.textContent = (isCollapsed ? "▶ " : "▼ ") + node.name;
+      const isCollapsed = collapsed.has(dir);
+      toggle.textContent = (isCollapsed ? "▶ " : "▼ ") + dir;
       toggle.addEventListener("click", () => {
-        collapsed.set(node.abs_path, !isCollapsed);
+        if (collapsed.has(dir)) collapsed.delete(dir); else collapsed.add(dir);
         rerender();
       });
       li.appendChild(toggle);
 
-      const subUl = document.createElement("ul");
-      subUl.style.paddingLeft = "12px";
-
       if (!isCollapsed) {
-        if (node.children && node.children.length > 0) {
-          for (const child of node.children) {
-            subUl.appendChild(renderNode(child, depth + 1));
-          }
-        } else if (depth >= 2) {
-          // Lazy-load directory at depth 2+
-          toggle.addEventListener("dblclick", (e) => {
-            e.stopPropagation();
-            if (lazyLoadCallback) {
-              lazyLoadCallback(node.abs_path);
-            }
-          });
-          const hint = document.createElement("span");
-          hint.className = "tree-lazy-hint";
-          hint.textContent = " (double-click to load)";
-          hint.style.color = "var(--color-text-muted)";
-          hint.style.fontSize = "0.85em";
-          li.appendChild(hint);
-        }
+        const subUl = document.createElement("ul");
+        subUl.style.paddingLeft = "12px";
+        for (const f of dirFiles) subUl.appendChild(makeFileItem(f));
+        li.appendChild(subUl);
       }
-      li.appendChild(subUl);
+      ul.appendChild(li);
+    }
+
+    container.replaceChildren(ul);
+  }
+
+  function makeFileItem(f: VaultFile): HTMLElement {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.classList.add("tree-file");
+    if (f.abs_path === currentActive) span.classList.add("active");
+    span.textContent = f.name;
+    span.title = f.rel_path;
+    span.addEventListener("click", () => onSelect(f));
+    li.appendChild(span);
+
+    if (getBrokenFiles && getBrokenFiles().has(f.abs_path)) {
+      const badge = document.createElement("span");
+      badge.className = "tree-badge-broken";
+      badge.title = "Contains broken links";
+      badge.textContent = "⚠";
+      li.appendChild(badge);
     }
 
     return li;
   }
 
   return {
-    render(nodes, activeAbsPath) {
-      currentNodes = nodes;
+    render(files, activeAbsPath) {
+      collapsed.clear();
+      currentFiles = files;
       currentActive = activeAbsPath;
       rerender();
     },
     setActive(absPath) {
       currentActive = absPath;
       rerender();
-    },
-    onLazyLoad(callback) {
-      lazyLoadCallback = callback;
     },
   };
 }

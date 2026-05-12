@@ -5,7 +5,7 @@ import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
 import { isTauri, openFile } from "./api";
-import { createVaultHandle, VaultNode, VaultFile } from "./vault";
+import { createVaultHandle, VaultFile } from "./vault";
 import { createTree } from "./tree";
 import { createPalette } from "./palette";
 import { createTabHandle } from "./tabs";
@@ -34,9 +34,6 @@ const reloadConfirmEl = document.getElementById("reload-confirm") as HTMLElement
 const reloadDismissEl = document.getElementById("reload-dismiss") as HTMLElement | null;
 const sidebarResizerEl = document.getElementById("sidebar-resizer") as HTMLElement | null;
 const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonElement | null;
-const settingsBtnEl = document.getElementById("settings-btn") as HTMLButtonElement | null;
-const settingsDropdownEl = document.getElementById("settings-dropdown") as HTMLElement | null;
-const settingsDepthEl = document.getElementById("settings-depth") as HTMLInputElement | null;
 const exportDropdownRootEl = document.getElementById("export-dropdown-root") as HTMLElement | null;
 const updateBannerRootEl = document.getElementById("update-banner-root") as HTMLElement | null;
 const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButtonElement | null;
@@ -44,7 +41,6 @@ const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButt
 if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl ||
     !vaultPrefixEl || !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
     !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl ||
-    !settingsBtnEl || !settingsDropdownEl || !settingsDepthEl ||
     !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
   throw new Error("missing layout host elements");
 }
@@ -61,60 +57,12 @@ const reloadConfirm = reloadConfirmEl;
 const reloadDismiss = reloadDismissEl;
 const sidebarResizer = sidebarResizerEl;
 const themeToggle = themeToggleEl;
-const settingsBtn = settingsBtnEl;
-const settingsDropdown = settingsDropdownEl;
-const settingsDepth = settingsDepthEl;
 const exportDropdownRoot = exportDropdownRootEl;
 const updateBannerRoot = updateBannerRootEl;
 const updateCheckBtn = updateCheckBtnEl;
 
 initTheme();
 themeToggle.addEventListener("click", toggleTheme);
-
-// Settings UI handlers
-let settingsOpen = false;
-
-function closeSettings(): void {
-  settingsDropdown.hidden = true;
-  settingsOpen = false;
-}
-
-settingsBtn.addEventListener("click", () => {
-  settingsOpen = !settingsOpen;
-  settingsDropdown.hidden = !settingsOpen;
-  if (settingsOpen) {
-    // Read current depth from localStorage
-    const saved = localStorage.getItem("skymark:maxDepth");
-    if (saved) {
-      settingsDepth.value = saved;
-    }
-  }
-});
-
-// Close settings when clicking outside
-document.addEventListener("click", (e) => {
-  if (settingsOpen && !settingsDropdown.contains(e.target as Node) && !settingsBtn.contains(e.target as Node)) {
-    closeSettings();
-  }
-});
-
-// Depth change handler
-settingsDepth.addEventListener("change", () => {
-  let val = parseInt(settingsDepth.value, 10);
-  if (isNaN(val) || val < 1) val = 1;
-  if (val > 10) val = 10;
-  settingsDepth.value = String(val);
-  localStorage.setItem("skymark:maxDepth", String(val));
-  // Re-scan vault if open
-  if (vault.root) {
-    void (async () => {
-      const result = await invoke<VaultNode[]>("scan_vault", { path: vault.root });
-      vault.tree = result;
-      tree.render(vault.tree, currentActive);
-    })();
-  }
-  closeSettings();
-});
 
 const preview = createPreview(previewHost);
 const syncExt = createSyncExtension(preview);
@@ -124,43 +72,7 @@ const vault = createVaultHandle();
 const headings = createHeadingIndex();
 const links = createLinkChecker();
 const tabs = createTabHandle((idx) => { void handleCloseTab(idx); });
-let currentActive: string | null = null;
-
-const tree = createTree(sidebar, (node) => { void openVaultFile(node); }, () => links.getBrokenFiles());
-
-// Lazy-load callback: when user double-clicks a depth-2 directory
-tree.onLazyLoad(async (absPath: string) => {
-  const maxDepth = parseInt(settingsDepth?.value ?? "2", 10) || 2;
-  try {
-    const nodes = await invoke<VaultNode[]>("scan_subdir", { path: absPath, maxDepth });
-    // Find the parent directory and update its children
-    function updateChildren(parents: VaultNode[]): boolean {
-      for (const parent of parents) {
-        if (parent.type === "dir" && parent.abs_path === absPath) {
-          if (parent.children) {
-            parent.children.length = 0;
-            for (const child of nodes) {
-              parent.children.push(child);
-            }
-          } else {
-            parent.children = nodes;
-          }
-          return true;
-        }
-        if (parent.type === "dir" && parent.children && updateChildren(parent.children)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    updateChildren(vault.tree);
-    tree.render(vault.tree, currentActive);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    showToast(`Failed to load directory: ${msg}`);
-  }
-});
-
+const tree = createTree(sidebar, (file) => { void openVaultFile(file); }, () => links.getBrokenFiles());
 const palette = createPalette(paletteOverlay);
 
 const editor = createEditor(
@@ -211,7 +123,7 @@ files.onAfterSave((_path) => {
   tabs.updateActive({ isDirty: false });
   rebindTabBar();
   if (tabs.active && vault.root) {
-    links.update(tabs.active.absPath, editor.getValue(), vault.tree as unknown as VaultFile[]);
+    links.update(tabs.active.absPath, editor.getValue(), vault.files);
     tree.setActive(tabs.active.absPath);
   }
 });
@@ -251,7 +163,7 @@ async function openFileInteractive(): Promise<void> {
       localStorage.setItem('skymark:vault-root', parentDir);
       const savedWidth = localStorage.getItem('skymark:sidebar-width');
       if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
-      tree.render(vault.tree, null);
+      tree.render(vault.files, null);
     }
   }
 
@@ -274,11 +186,10 @@ async function openFileInteractive(): Promise<void> {
     preview.update(content);
     updateTitlebar(newPath);
     reloadBanner.hidden = true;
-    const vf = vault.tree.find(n => n.type === "file" && n.abs_path === newPath) as VaultNode | undefined;
-    if (vf && vf.type === "file") {
-      const relPath = vf.abs_path.slice(vault.root!.length + 1);
-      headings.index(vf.abs_path, relPath, vf.name, content);
-      links.update(vf.abs_path, content, vault.tree as unknown as VaultFile[]);
+    const vf = vault.files.find(f => f.abs_path === newPath);
+    if (vf) {
+      headings.index(vf.abs_path, vf.rel_path, vf.name, content);
+      links.update(vf.abs_path, content, vault.files);
     }
     tabs.persist();
     rebindTabBar();
@@ -348,8 +259,8 @@ window.addEventListener("keydown", (e) => {
   } else if ((e.key === "p" || e.key === "P") && vault.root) {
     e.preventDefault();
     palette.show(
-      vault.tree as unknown as VaultFile[],
-      (file: VaultFile) => { void openVaultFile(file as unknown as VaultNode); },
+      vault.files,
+      (file) => { void openVaultFile(file); },
       headings.getAll(),
       (h) => { void openHeading(h); },
     );
@@ -448,11 +359,11 @@ async function openVault(): Promise<void> {
   const savedWidth = localStorage.getItem('skymark:sidebar-width');
   if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
 
-  tree.render(vault.tree, null);
+  tree.render(vault.files, null);
 
   const autoFile =
-    vault.tree.find(f => /^(index|readme)\.md$/i.test(f.name)) ??
-    vault.tree[0];
+    vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ??
+    vault.files[0];
 
   if (!autoFile) {
     showToast("No Markdown files found in this folder");
@@ -463,8 +374,7 @@ async function openVault(): Promise<void> {
   void watchCurrentTabs();
 }
 
-async function openVaultFile(node: VaultNode): Promise<void> {
-  if (node.type !== "file") return;
+async function openVaultFile(file: VaultFile): Promise<void> {
   if (files.state.isDirty) {
     const currentName = files.state.path ? basename(files.state.path) : "Untitled";
     const save = confirm(`Save changes to "${currentName}"?`);
@@ -474,7 +384,7 @@ async function openVaultFile(node: VaultNode): Promise<void> {
     }
   }
 
-  const existing = tabs.entries.findIndex(e => e.absPath === node.abs_path);
+  const existing = tabs.entries.findIndex(e => e.absPath === file.abs_path);
   if (existing !== -1) { switchTab(existing); return; }
 
   if (tabs.active) {
@@ -485,25 +395,23 @@ async function openVaultFile(node: VaultNode): Promise<void> {
     });
   }
 
-  const content = await files.loadFile(node.abs_path);
-  tabs.addTab(node.abs_path, content);
+  const content = await files.loadFile(file.abs_path);
+  tabs.addTab(file.abs_path, content);
   editor.setValue(content);
   files.clearDirty();
   tabs.updateActive({ isDirty: false });
   preview.update(content);
-  tree.setActive(node.abs_path);
-  updateTitlebar(node.abs_path);
+  tree.setActive(file.abs_path);
+  updateTitlebar(file.abs_path);
   reloadBanner.hidden = true;
 
-  currentActive = node.abs_path;
-
-  headings.index(node.abs_path, node.abs_path.slice(vault.root!.length + 1), node.name, content);
-  links.update(node.abs_path, content, vault.tree as unknown as VaultFile[]);
+  headings.index(file.abs_path, file.rel_path, file.name, content);
+  links.update(file.abs_path, content, vault.files);
   tabs.persist();
   rebindTabBar();
   // Add this file to the watcher
   if (isTauri()) {
-    void invoke("add_watch", { path: node.abs_path });
+    void invoke("add_watch", { path: file.abs_path });
   }
 }
 
@@ -521,7 +429,7 @@ async function openHeading(h: HeadingEntry): Promise<void> {
     updateTitlebar(h.absPath);
     reloadBanner.hidden = true;
     headings.index(h.absPath, h.relPath, h.fileName, content);
-    links.update(h.absPath, content, vault.tree as unknown as VaultFile[]);
+    links.update(h.absPath, content, vault.files);
     tabs.persist();
     rebindTabBar();
     // Add this file to the watcher
@@ -602,7 +510,7 @@ reloadConfirm.addEventListener("click", () => {
       const relPath = active.absPath.slice(vault.root.length + 1);
       const fileName = basename(active.absPath);
       headings.index(active.absPath, relPath, fileName, content);
-      links.update(active.absPath, content, vault.tree as unknown as VaultFile[]);
+      links.update(active.absPath, content, vault.files);
       tree.setActive(active.absPath);
     }
   })();
@@ -695,7 +603,7 @@ void (async () => {
   panes.classList.add("vault-mode");
   const savedWidth = localStorage.getItem('skymark:sidebar-width');
   if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
-  tree.render(vault.tree, null);
+  tree.render(vault.files, null);
 
   const saved = tabs.restore();
   for (const { absPath } of saved.entries) {
@@ -705,7 +613,7 @@ void (async () => {
       const fileName = basename(opened.path);
       tabs.addTab(opened.path, opened.content);
       headings.index(opened.path, relPath, fileName, opened.content);
-      links.update(opened.path, opened.content, vault.tree as unknown as VaultFile[]);
+      links.update(opened.path, opened.content, vault.files);
     } catch {
       // file no longer exists
     }
@@ -730,18 +638,7 @@ void (async () => {
       }
     }
   } else {
-    function findFirstFile(nodes: VaultNode[]): VaultNode | null {
-      for (const n of nodes) {
-        if (n.type === "file") {
-          if (/^(index|readme)\.md$/i.test(n.name)) return n;
-        } else if (n.type === "dir" && n.children) {
-          const found = findFirstFile(n.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-    const autoFile = findFirstFile(vault.tree);
+    const autoFile = vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ?? vault.files[0];
     if (autoFile) {
       await openVaultFile(autoFile);
       // openVaultFile already calls add_watch, so no need to call watchCurrentTabs

@@ -3,35 +3,18 @@ use std::path::{Path, PathBuf};
 
 use crate::storage::Storage;
 
-#[derive(Debug, Clone, Serialize)]
-#[cfg(test)]
+#[derive(Debug, Serialize, Clone)]
 pub struct VaultFile {
     pub abs_path: String,
     pub rel_path: String,
     pub name: String,
 }
 
-/// Tree node returned by the new tree-based vault scanner.
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", content = "data")]
-pub enum VaultNode {
-    Dir {
-        abs_path: String,
-        name: String,
-        children: Vec<VaultNode>,
-    },
-    File {
-        abs_path: String,
-        name: String,
-    },
-}
-
 /// Default maximum directory depth for vault scan.
-const DEFAULT_MAX_DEPTH: usize = 2;
+const DEFAULT_MAX_DEPTH: usize = 20;
 
 /// Testable scan helper. `max_files` lets tests use a small cap.
 /// `max_depth` prevents stack overflow on deeply nested directories.
-#[cfg(test)]
 pub fn scan_dir(root: &Path, max_files: usize, max_depth: usize) -> Result<Vec<VaultFile>, String> {
     let mut files = Vec::new();
     collect_files(root, root, &mut files, max_files, max_depth, 0)?;
@@ -39,7 +22,6 @@ pub fn scan_dir(root: &Path, max_files: usize, max_depth: usize) -> Result<Vec<V
     Ok(files)
 }
 
-#[cfg(test)]
 fn collect_files(
     root: &Path,
     dir: &Path,
@@ -92,85 +74,8 @@ fn collect_files(
     Ok(())
 }
 
-/// Scan a directory tree and return VaultNode entries.
-fn scan_dir_to_tree(
-    dir: &Path,
-    max_files: usize,
-    max_depth: usize,
-    depth: usize,
-) -> Result<Vec<VaultNode>, String> {
-    if depth > max_depth {
-        return Ok(Vec::new());
-    }
-    let storage = crate::storage::StdStorage;
-    let entries = storage.list(dir)?;
-    let mut nodes: Vec<VaultNode> = Vec::new();
-    let mut file_count: usize = 0;
-
-    for entry in entries {
-        let os_name = entry.file_name();
-        let name = os_name.to_string_lossy();
-        if name.starts_with('.') {
-            continue;
-        }
-        let path = entry.path();
-        let ft = entry.file_type().map_err(|e| e.to_string())?;
-        if ft.is_dir() {
-            let children = scan_dir_to_tree(&path, max_files, max_depth, depth + 1)?;
-            nodes.push(VaultNode::Dir {
-                abs_path: path.to_string_lossy().into_owned(),
-                name: name.into_owned(),
-                children,
-            });
-        } else if ft.is_file() {
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            if matches!(ext.as_str(), "md" | "markdown" | "txt") {
-                file_count += 1;
-                nodes.push(VaultNode::File {
-                    abs_path: path.to_string_lossy().into_owned(),
-                    name: name.into_owned(),
-                });
-                if file_count > max_files {
-                    return Err(format!(
-                        "vault too large: more than {max_files} files found"
-                    ));
-                }
-            }
-        }
-    }
-
-    // Sort nodes: directories first, then files, both case-insensitive
-    nodes.sort_by(|a, b| {
-        let a_is_dir = matches!(a, VaultNode::Dir { .. });
-        let b_is_dir = matches!(b, VaultNode::Dir { .. });
-        match (a_is_dir, b_is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a
-                .name()
-                .to_ascii_lowercase()
-                .cmp(&b.name().to_ascii_lowercase()),
-        }
-    });
-
-    Ok(nodes)
-}
-
-impl VaultNode {
-    fn name(&self) -> &str {
-        match self {
-            VaultNode::Dir { name, .. } => name,
-            VaultNode::File { name, .. } => name,
-        }
-    }
-}
-
 #[tauri::command]
-pub fn scan_vault(path: String) -> Result<Vec<VaultNode>, String> {
+pub fn scan_vault(path: String) -> Result<Vec<VaultFile>, String> {
     let p = PathBuf::from(&path);
     if !p.is_absolute() {
         return Err("vault path must be absolute".into());
@@ -178,19 +83,7 @@ pub fn scan_vault(path: String) -> Result<Vec<VaultNode>, String> {
     if !p.is_dir() {
         return Err(format!("not a directory: {path}"));
     }
-    scan_dir_to_tree(&p, 5_000, DEFAULT_MAX_DEPTH, 0)
-}
-
-#[tauri::command]
-pub fn scan_subdir(path: String, max_depth: usize) -> Result<Vec<VaultNode>, String> {
-    let p = PathBuf::from(&path);
-    if !p.is_absolute() {
-        return Err("path must be absolute".into());
-    }
-    if !p.is_dir() {
-        return Err(format!("not a directory: {path}"));
-    }
-    scan_dir_to_tree(&p, 5_000, max_depth, 0)
+    scan_dir(&p, 5_000, DEFAULT_MAX_DEPTH)
 }
 
 #[cfg(test)]
@@ -294,92 +187,6 @@ mod tests {
                 depth
             );
         }
-
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn scan_dir_to_tree_returns_tree_structure() {
-        let dir = tmpdir("tree-basic");
-        let sub = dir.join("sub");
-        fs::create_dir_all(&sub).unwrap();
-        fs::write(dir.join("a.md"), "").unwrap();
-        fs::write(sub.join("b.md"), "").unwrap();
-
-        let nodes = scan_dir_to_tree(&dir, 100, 2, 0).unwrap();
-        assert_eq!(nodes.len(), 2); // 1 dir + 1 file
-
-        // Find the dir node
-        let dir_node = nodes.iter().find(|n| matches!(n, VaultNode::Dir { .. }));
-        assert!(dir_node.is_some());
-        let dir_node = dir_node.unwrap();
-        if let VaultNode::Dir { children, .. } = dir_node {
-            assert_eq!(children.len(), 1);
-            assert!(matches!(&children[0], VaultNode::File { name, .. } if name == "b.md"));
-        } else {
-            panic!("expected Dir node");
-        }
-
-        // Find the file node
-        let file_node = nodes.iter().find(|n| matches!(n, VaultNode::File { .. }));
-        assert!(file_node.is_some());
-
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn scan_dir_to_tree_respects_depth() {
-        let dir = tmpdir("tree-depth");
-        let deep = dir.join("d1").join("d2").join("d3");
-        fs::create_dir_all(&deep).unwrap();
-        fs::write(dir.join("root.md"), "").unwrap();
-        fs::write(dir.join("d1").join("d1.md"), "").unwrap();
-        fs::write(dir.join("d1").join("d2").join("d2.md"), "").unwrap();
-        fs::write(deep.join("d3.md"), "").unwrap();
-
-        // With depth 1, only root level files and d1 dir should appear
-        let nodes = scan_dir_to_tree(&dir, 100, 1, 0).unwrap();
-        let dir_node = nodes
-            .iter()
-            .find(|n| matches!(n, VaultNode::Dir { name, .. } if name == "d1"));
-        assert!(dir_node.is_some());
-        if let Some(VaultNode::Dir { children, .. }) = dir_node {
-            // d1 should have d2 as a child (depth 1 scan includes depth 2 dirs)
-            assert!(children
-                .iter()
-                .any(|c| matches!(c, VaultNode::Dir { name, .. } if name == "d2")));
-        }
-
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn scan_dir_to_tree_skips_hidden() {
-        let dir = tmpdir("tree-hidden");
-        fs::create_dir_all(dir.join(".hidden")).unwrap();
-        fs::write(dir.join("visible.md"), "").unwrap();
-        fs::write(dir.join(".hidden.md"), "").unwrap();
-        fs::write(dir.join(".hidden").join("inside.md"), "").unwrap();
-
-        let nodes = scan_dir_to_tree(&dir, 100, 2, 0).unwrap();
-        assert_eq!(nodes.len(), 1); // only visible.md (hidden dir skipped)
-        assert!(matches!(&nodes[0], VaultNode::File { name, .. } if name == "visible.md"));
-
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn scan_dir_to_tree_sorts_dirs_before_files() {
-        let dir = tmpdir("tree-sort");
-        fs::create_dir_all(dir.join("alpha")).unwrap();
-        fs::write(dir.join("b-file.md"), "").unwrap();
-        fs::write(dir.join("a-file.md"), "").unwrap();
-
-        let nodes = scan_dir_to_tree(&dir, 100, 2, 0).unwrap();
-        // Directories should come before files
-        assert!(matches!(&nodes[0], VaultNode::Dir { .. }));
-        assert!(matches!(&nodes[1], VaultNode::File { .. }));
-        assert!(matches!(&nodes[2], VaultNode::File { .. }));
 
         fs::remove_dir_all(&dir).ok();
     }

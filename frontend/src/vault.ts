@@ -3,13 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./api";
 import { showToast } from "./toast";
 
-export interface VaultNode {
-  type: "dir" | "file";
-  abs_path: string;
-  name: string;
-  children?: VaultNode[];
-}
-
 export interface VaultFile {
   abs_path: string;
   rel_path: string;
@@ -18,27 +11,27 @@ export interface VaultFile {
 
 export interface VaultHandle {
   readonly root: string | null;
-  tree: VaultNode[];
+  readonly files: VaultFile[];
   open(): Promise<boolean>;
   openFromPath(path: string): Promise<boolean>;
 }
 
 export function createVaultHandle(): VaultHandle {
   let root: string | null = null;
-  let tree: VaultNode[] = [];
+  let files: VaultFile[] = [];
 
   return {
     get root() { return root; },
-    get tree() { return tree; },
+    get files() { return files; },
 
     async open() {
       if (!isTauri()) return false;
       const picked = await openDialog({ directory: true, multiple: false });
       if (!picked || Array.isArray(picked)) return false;
       try {
-        const result = await invoke<VaultNode[]>("scan_vault", { path: picked });
+        const result = await invoke<VaultFile[]>("scan_vault", { path: picked });
         root = picked;
-        tree = result;
+        files = result;
         return true;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -50,9 +43,9 @@ export function createVaultHandle(): VaultHandle {
     async openFromPath(path: string) {
       if (!isTauri()) return false;
       try {
-        const result = await invoke<VaultNode[]>("scan_vault", { path });
+        const result = await invoke<VaultFile[]>("scan_vault", { path });
         root = path;
-        tree = result;
+        files = result;
         return true;
       } catch {
         return false;

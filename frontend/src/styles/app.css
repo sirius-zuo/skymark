@@ -39,43 +39,6 @@ body {
   color: var(--color-text-muted);
 }
 .theme-toggle-btn:hover { color: var(--color-text); }
-.settings-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 var(--space-1);
-  line-height: 1;
-  color: var(--color-text-muted);
-}
-.settings-btn:hover { color: var(--color-text); }
-.settings-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  font-size: 14px;
-  white-space: nowrap;
-}
-.settings-dropdown label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-.settings-dropdown input[type="number"] {
-  width: 50px;
-  padding: 4px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-bg);
-  color: var(--color-text);
-}
 .export-dropdown { position: relative; }
 .export-btn {
   background: none;
@@ -181,7 +144,7 @@ body {
 
 .editor-pane { border-right: var(--pane-divider); background: var(--color-surface); }
 .editor-pane .cm-editor { flex: 1; height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
-.editor-pane .cm-scroller { padding: 0 var(--space-6) var(--space-5) 0; }
+.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6); }
 
 .preview-pane { background: var(--color-surface); overflow-y: auto; padding: var(--space-5) var(--space-6); }
 .preview-pane .preview-content {
@@ -285,7 +248,6 @@ body {
   cursor: pointer;
 }
 .tree-dir-toggle:hover { color: var(--color-text); }
-.tree-lazy-hint { color: var(--color-text-muted); font-size: 0.85em; }
 
 /* ── Palette overlay ───────────────────────────────────────────────────── */
 

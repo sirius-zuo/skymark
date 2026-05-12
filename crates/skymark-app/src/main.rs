@@ -48,7 +48,6 @@ fn main() {
             draft::list_drafts,
             draft::discard_draft,
             vault::scan_vault,
-            vault::scan_subdir,
             watcher::add_watch,
             watcher::remove_watch,
             watcher::clear_all,
