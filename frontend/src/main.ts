@@ -265,9 +265,10 @@ function switchTab(idx: number): void {
   tabs.activateTab(idx);
   const entry = tabs.active;
   if (!entry) return;
+  const wasDirty = entry.isDirty;
   editor.setValue(entry.content);
   files.clearDirty();
-  tabs.updateActive({ isDirty: false });
+  tabs.updateActive({ isDirty: wasDirty });
   editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
@@ -292,9 +293,10 @@ async function handleCloseTab(idx: number): Promise<void> {
   tabs.forceCloseTab(idx);
   const active = tabs.active;
   if (active) {
+    const wasDirty = active.isDirty;
     editor.setValue(active.content);
     files.clearDirty();
-    tabs.updateActive({ isDirty: false });
+    tabs.updateActive({ isDirty: wasDirty });
     preview.update(active.content);
     updateTitlebar(active.absPath || null);
     reloadBanner.hidden = !active.externallyModified;
