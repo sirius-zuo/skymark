@@ -306,6 +306,10 @@ async function handleCloseTab(idx: number): Promise<void> {
     preview.update("");
     files.newDocument();
     reloadBanner.hidden = true;
+    tabBar.hidden = true;
+    sidebar.hidden = true;
+    sidebarResizer.hidden = true;
+    panes.style.gridTemplateColumns = "";
   }
   rebindTabBar();
 }
