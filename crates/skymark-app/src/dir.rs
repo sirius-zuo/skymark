@@ -36,7 +36,7 @@ pub(crate) fn list_dir_inner(dir: &Path) -> Result<Vec<DirEntry>, String> {
             continue;
         }
         let path = entry.path();
-        let ft = entry.file_type().map_err(|e| e.to_string())?;
+        let Ok(ft) = entry.file_type() else { continue };
         let abs_path = path.to_string_lossy().into_owned();
 
         if ft.is_dir() {

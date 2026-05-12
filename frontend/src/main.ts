@@ -497,9 +497,11 @@ function doPrint(mode: "preview" | "source"): void {
     iframeDoc.body.appendChild(pre);
   }
 
+  const cleanup = () => { iframe.remove(); };
+  iframe.contentWindow!.addEventListener("afterprint", cleanup, { once: true });
   iframe.contentWindow!.focus();
   iframe.contentWindow!.print();
-  setTimeout(() => iframe.remove(), 1000);
+  setTimeout(cleanup, 60_000);
 }
 
 // ---- Titlebar --------------------------------------------------------------
