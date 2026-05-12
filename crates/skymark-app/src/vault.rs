@@ -13,7 +13,7 @@ pub struct VaultFile {
 
 /// Tree node returned by the new tree-based vault scanner.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "data")]
 pub enum VaultNode {
     Dir {
         abs_path: String,
