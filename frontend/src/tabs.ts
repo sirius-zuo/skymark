@@ -54,8 +54,10 @@ export function createTabHandle(onCloseClick: (idx: number) => void): TabHandle 
     get active() { return activeIdx >= 0 ? entries[activeIdx] : null; },
 
     addTab(absPath, content) {
-      const existing = entries.findIndex(e => e.absPath === absPath);
-      if (existing !== -1) { activeIdx = existing; notify(); return; }
+      if (absPath) {
+        const existing = entries.findIndex(e => e.absPath === absPath);
+        if (existing !== -1) { activeIdx = existing; notify(); return; }
+      }
       entries.push({ absPath, isDirty: false, content, cursorPos: 0, scrollTop: 0, externallyModified: false });
       activeIdx = entries.length - 1;
       notify();

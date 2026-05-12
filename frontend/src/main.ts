@@ -198,9 +198,6 @@ async function openFileByPath(absPath: string): Promise<void> {
 }
 
 function startNewDocument(): void {
-  const existingNew = tabs.entries.findIndex(e => e.absPath === "");
-  if (existingNew !== -1) { switchTab(existingNew); return; }
-
   if (tabs.active) {
     tabs.updateActive({
       content: editor.getValue(),
