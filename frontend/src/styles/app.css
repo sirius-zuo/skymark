@@ -144,7 +144,7 @@ body {
 
 .editor-pane { border-right: var(--pane-divider); background: var(--color-surface); }
 .editor-pane .cm-editor { flex: 1; height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
-.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6); }
+.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6) var(--space-5) 0; }
 
 .preview-pane { background: var(--color-surface); overflow-y: auto; padding: var(--space-5) var(--space-6); }
 .preview-pane .preview-content {
