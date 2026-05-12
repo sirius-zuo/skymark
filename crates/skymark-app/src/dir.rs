@@ -22,7 +22,7 @@ pub fn list_dir(path: String) -> Result<Vec<DirEntry>, String> {
     list_dir_inner(&p)
 }
 
-pub fn list_dir_inner(dir: &Path) -> Result<Vec<DirEntry>, String> {
+pub(crate) fn list_dir_inner(dir: &Path) -> Result<Vec<DirEntry>, String> {
     let storage = crate::storage::StdStorage;
     let raw = storage.list(dir)?;
 
