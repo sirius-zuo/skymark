@@ -62,8 +62,16 @@ pub(crate) fn list_dir_inner(dir: &Path) -> Result<Vec<DirEntry>, String> {
         }
     }
 
-    dirs.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
-    files.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
+    dirs.sort_by(|a, b| {
+        a.name
+            .to_ascii_lowercase()
+            .cmp(&b.name.to_ascii_lowercase())
+    });
+    files.sort_by(|a, b| {
+        a.name
+            .to_ascii_lowercase()
+            .cmp(&b.name.to_ascii_lowercase())
+    });
     dirs.extend(files);
     Ok(dirs)
 }
@@ -74,8 +82,8 @@ mod tests {
     use std::fs;
 
     fn tmpdir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("skymark-dir-{}-{}", label, std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("skymark-dir-{}-{}", label, std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -91,8 +99,12 @@ mod tests {
         let entries = list_dir_inner(&dir).unwrap();
         assert_eq!(entries.len(), 3);
         assert!(entries.iter().any(|e| e.name == "sub" && e.is_dir));
-        assert!(entries.iter().any(|e| e.name == "a.md" && !e.is_dir && e.is_supported));
-        assert!(entries.iter().any(|e| e.name == "b.txt" && !e.is_dir && e.is_supported));
+        assert!(entries
+            .iter()
+            .any(|e| e.name == "a.md" && !e.is_dir && e.is_supported));
+        assert!(entries
+            .iter()
+            .any(|e| e.name == "b.txt" && !e.is_dir && e.is_supported));
         fs::remove_dir_all(&dir).ok();
     }
 
