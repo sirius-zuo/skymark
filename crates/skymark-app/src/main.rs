@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod dir;
 mod draft;
 mod menu;
 mod storage;
-mod vault;
 mod watcher;
 
 use tauri::{Emitter, Manager};
@@ -15,8 +15,8 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
-            if let Ok(dir) = app.path().app_data_dir().map(|d| d.join("drafts")) {
-                let _ = draft::gc_old_drafts_in_dir(&dir);
+            if let Ok(d) = app.path().app_data_dir().map(|d| d.join("drafts")) {
+                let _ = draft::gc_old_drafts_in_dir(&d);
             }
             app.manage(storage::StdStorage);
             app.manage(draft::DraftState {
@@ -28,14 +28,13 @@ fn main() {
             });
 
             app.on_menu_event(|app, event| match event.id().as_ref() {
-                "new-file" | "open-file" | "open-folder" | "save-file" | "find" => {
+                "new-file" | "open-file" | "save-file" | "find" | "print-file" => {
                     let _ = app.emit("skymark://menu", event.id().as_ref());
                 }
                 _ => {}
             });
 
             menu::build_menu(app)?;
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -47,7 +46,7 @@ fn main() {
             draft::load_draft,
             draft::list_drafts,
             draft::discard_draft,
-            vault::scan_vault,
+            dir::list_dir,
             watcher::add_watch,
             watcher::remove_watch,
             watcher::clear_all,

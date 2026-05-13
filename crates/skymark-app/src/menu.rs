@@ -1,18 +1,21 @@
 //! Menu construction for Skymark.
-//!
-//! Extracted from `main.rs` to reduce its size and isolate menu logic.
 
 use tauri::{menu::IsMenuItem, menu::PredefinedMenuItem, App};
 
-/// Build and prepend/append menu items to the app menu.
-///
-/// File menu: New | Open… | Open Folder… | — | Save | — (reverse-prepend)
-/// Edit menu: Find (append after Select All)
+/// File menu: New | Open... | sep | Save | sep | Print...
+/// Edit menu: Find (appended after Select All)
 pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
     if let Some(menu) = app.menu() {
         for item in menu.items()? {
             if let tauri::menu::MenuItemKind::Submenu(sub) = item.kind() {
                 if let "File" = sub.text()?.as_str() {
+                    let print = tauri::menu::MenuItem::with_id(
+                        app,
+                        "print-file",
+                        "Print\u{2026}",
+                        true,
+                        Some("CmdOrCtrl+P"),
+                    )?;
                     let sep2 = PredefinedMenuItem::separator(app)?;
                     let save = tauri::menu::MenuItem::with_id(
                         app,
@@ -22,17 +25,10 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                         Some("CmdOrCtrl+S"),
                     )?;
                     let sep1 = PredefinedMenuItem::separator(app)?;
-                    let ofol = tauri::menu::MenuItem::with_id(
-                        app,
-                        "open-folder",
-                        "Open Folder…",
-                        true,
-                        Some("CmdOrCtrl+Shift+O"),
-                    )?;
                     let open = tauri::menu::MenuItem::with_id(
                         app,
                         "open-file",
-                        "Open…",
+                        "Open\u{2026}",
                         true,
                         Some("CmdOrCtrl+O"),
                     )?;
@@ -43,10 +39,10 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                         true,
                         Some("CmdOrCtrl+N"),
                     )?;
+                    sub.prepend(&print)?;
                     sub.prepend(&sep2)?;
                     sub.prepend(&save)?;
                     sub.prepend(&sep1)?;
-                    sub.prepend(&ofol)?;
                     sub.prepend(&open)?;
                     sub.prepend(&new)?;
                 } else if let "Edit" = sub.text()?.as_str() {

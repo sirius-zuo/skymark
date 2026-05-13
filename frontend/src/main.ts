@@ -5,12 +5,8 @@ import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
 import { isTauri, openFile } from "./api";
-import { createVaultHandle, VaultFile } from "./vault";
-import { createTree } from "./tree";
-import { createPalette } from "./palette";
+import { createDirTree } from "./dir-tree";
 import { createTabHandle } from "./tabs";
-import { createHeadingIndex, HeadingEntry } from "./headings";
-import { createLinkChecker } from "./links";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openSearchPanel } from "@codemirror/search";
@@ -20,12 +16,12 @@ import { checkForUpdate, onUpdateAvailable } from "./update";
 import { createUpdateBanner } from "./update-banner";
 import { createToolbar } from "./toolbar";
 
+// ---- DOM elements ----------------------------------------------------------
+
 const editorHost = document.getElementById("editor");
 const previewHost = document.getElementById("preview");
 const sidebarEl = document.getElementById("sidebar") as HTMLElement | null;
-const paletteOverlayEl = document.getElementById("palette-overlay") as HTMLElement | null;
 const titleEl = document.getElementById("doc-title") as HTMLElement | null;
-const vaultPrefixEl = document.getElementById("vault-prefix") as HTMLElement | null;
 const dirtyEl = document.getElementById("dirty-indicator") as HTMLElement | null;
 const panesEl = document.querySelector(".panes") as HTMLElement | null;
 const tabBarEl = document.getElementById("tab-bar") as HTMLElement | null;
@@ -38,17 +34,15 @@ const exportDropdownRootEl = document.getElementById("export-dropdown-root") as 
 const updateBannerRootEl = document.getElementById("update-banner-root") as HTMLElement | null;
 const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButtonElement | null;
 
-if (!editorHost || !previewHost || !sidebarEl || !paletteOverlayEl || !titleEl ||
-    !vaultPrefixEl || !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
+if (!editorHost || !previewHost || !sidebarEl || !titleEl ||
+    !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
     !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl ||
     !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
   throw new Error("missing layout host elements");
 }
 
 const sidebar = sidebarEl;
-const paletteOverlay = paletteOverlayEl;
 const title = titleEl;
-const vaultPrefix = vaultPrefixEl;
 const dirty = dirtyEl;
 const panes = panesEl;
 const tabBar = tabBarEl;
@@ -61,6 +55,8 @@ const exportDropdownRoot = exportDropdownRootEl;
 const updateBannerRoot = updateBannerRootEl;
 const updateCheckBtn = updateCheckBtnEl;
 
+// ---- Setup -----------------------------------------------------------------
+
 initTheme();
 themeToggle.addEventListener("click", toggleTheme);
 
@@ -68,12 +64,8 @@ const preview = createPreview(previewHost);
 const syncExt = createSyncExtension(preview);
 const files = createFileFlow();
 const drafts = createDraftHandle();
-const vault = createVaultHandle();
-const headings = createHeadingIndex();
-const links = createLinkChecker();
 const tabs = createTabHandle((idx) => { void handleCloseTab(idx); });
-const tree = createTree(sidebar, (file) => { void openVaultFile(file); }, () => links.getBrokenFiles());
-const palette = createPalette(paletteOverlay);
+const dirTree = createDirTree(sidebar, (absPath) => { void openFileByPath(absPath); });
 
 const editor = createEditor(
   editorHost,
@@ -98,8 +90,12 @@ if (toolbarEl) {
   console.error("format-toolbar element not found");
 }
 
-const exportDropdown = createExportDropdown(preview.getContentEl(), () => title.textContent ?? "Untitled");
+const exportDropdown = createExportDropdown(
+  preview.getContentEl(),
+  () => title.textContent ?? "Untitled",
+);
 exportDropdownRoot.appendChild(exportDropdown.el);
+
 const updateBanner = createUpdateBanner(updateBannerRoot);
 onUpdateAvailable(({ version }) => {
   updateBanner.show(version);
@@ -122,9 +118,8 @@ files.onAfterSave((_path) => {
   drafts.onExplicitSave(_path);
   tabs.updateActive({ isDirty: false });
   rebindTabBar();
-  if (tabs.active && vault.root) {
-    links.update(tabs.active.absPath, editor.getValue(), vault.files);
-    tree.setActive(tabs.active.absPath);
+  if (tabs.active?.absPath) {
+    dirTree.setActive(tabs.active.absPath);
   }
 });
 
@@ -133,105 +128,93 @@ editor.setValue(initial);
 preview.update(initial);
 files.clearDirty();
 
-// ---- File action helpers ----------------------------------------------------
+// ---- Sidebar / tab visibility ----------------------------------------------
+
+function showSidebarAndTabs(): void {
+  tabBar.hidden = false;
+  if (sidebar.hidden) {
+    sidebar.hidden = false;
+    sidebarResizer.hidden = false;
+    const savedWidth = localStorage.getItem("skymark:sidebar-width");
+    const w = savedWidth ?? "220";
+    panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
+  }
+}
+
+// ---- File action helpers ---------------------------------------------------
 
 async function openFileInteractive(): Promise<void> {
   const content = await files.openInteractive();
   if (content === null) return;
   const newPath = files.state.path!;
 
-  // Determine if the file lives outside the current vault (or no vault is open).
-  const sep = newPath.includes("/") ? "/" : "\\";
-  const parentDir = newPath.slice(0, newPath.lastIndexOf(sep)) || newPath;
-  const inVault = vault.root != null &&
-    (newPath.startsWith(vault.root + "/") || newPath.startsWith(vault.root + "\\"));
+  const existing = tabs.entries.findIndex(e => e.absPath === newPath);
+  if (existing !== -1) { switchTab(existing); return; }
 
-  if (!inVault) {
-    // Open the file's parent directory as the new vault.
-    if (isTauri()) void invoke("clear_all");
-    const prevPaths = tabs.entries.map(e => e.absPath);
-    tabs.clearAll();
-    for (const p of prevPaths) headings.remove(p);
-    links.clear();
-
-    const ok = await vault.openFromPath(parentDir);
-    if (ok) {
-      sidebar.hidden = false;
-      sidebarResizer.hidden = false;
-      tabBar.hidden = false;
-      panes.classList.add("vault-mode");
-      localStorage.setItem('skymark:vault-root', parentDir);
-      const savedWidth = localStorage.getItem('skymark:sidebar-width');
-      if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
-      tree.render(vault.files, null);
-    }
+  if (tabs.active) {
+    tabs.updateActive({
+      content: editor.getValue(),
+      cursorPos: editor.view.state.selection.main.anchor,
+      scrollTop: editor.view.scrollDOM.scrollTop,
+    });
   }
+  tabs.addTab(newPath, content);
+  editor.setValue(content);
+  files.clearDirty();
+  tabs.updateActive({ isDirty: false });
+  preview.update(content);
+  updateTitlebar(newPath);
+  reloadBanner.hidden = true;
+  tabs.persist();
+  rebindTabBar();
+  showSidebarAndTabs();
+  void dirTree.setRoot(dirOf(newPath), newPath);
+  if (isTauri()) void invoke("add_watch", { path: newPath });
+}
 
-  if (vault.root) {
-    // Switch to the tab if already open, otherwise add a new one.
-    const existing = tabs.entries.findIndex(e => e.absPath === newPath);
-    if (existing !== -1) { switchTab(existing); return; }
+async function openFileByPath(absPath: string): Promise<void> {
+  const existing = tabs.entries.findIndex(e => e.absPath === absPath);
+  if (existing !== -1) { switchTab(existing); return; }
 
-    if (tabs.active) {
-      tabs.updateActive({
-        content: editor.getValue(),
-        cursorPos: editor.view.state.selection.main.anchor,
-        scrollTop: editor.view.scrollDOM.scrollTop,
-      });
-    }
-    tabs.addTab(newPath, content);
-    editor.setValue(content);
-    files.clearDirty();
-    tabs.updateActive({ isDirty: false });
-    preview.update(content);
-    updateTitlebar(newPath);
-    reloadBanner.hidden = true;
-    const vf = vault.files.find(f => f.abs_path === newPath);
-    if (vf) {
-      headings.index(vf.abs_path, vf.rel_path, vf.name, content);
-      links.update(vf.abs_path, content, vault.files);
-    }
-    tabs.persist();
-    rebindTabBar();
-    tree.setActive(newPath);
-    // Add this file to the watcher
-    if (isTauri()) {
-      void invoke("add_watch", { path: newPath });
-    }
-  } else {
-    editor.setValue(content);
-    preview.update(content);
-    files.clearDirty();
+  if (tabs.active) {
+    tabs.updateActive({
+      content: editor.getValue(),
+      cursorPos: editor.view.state.selection.main.anchor,
+      scrollTop: editor.view.scrollDOM.scrollTop,
+    });
   }
+  const content = await files.loadFile(absPath);
+  tabs.addTab(absPath, content);
+  editor.setValue(content);
+  files.clearDirty();
+  tabs.updateActive({ isDirty: false });
+  preview.update(content);
+  updateTitlebar(absPath);
+  reloadBanner.hidden = true;
+  tabs.persist();
+  rebindTabBar();
+  dirTree.setActive(absPath);
+  if (isTauri()) void invoke("add_watch", { path: absPath });
 }
 
 function startNewDocument(): void {
-  if (vault.root) {
-    // In vault mode: open a new untitled tab (or switch to existing one).
-    const existingNew = tabs.entries.findIndex(e => e.absPath === "");
-    if (existingNew !== -1) { switchTab(existingNew); return; }
-
-    if (tabs.active) {
-      tabs.updateActive({
-        content: editor.getValue(),
-        cursorPos: editor.view.state.selection.main.anchor,
-        scrollTop: editor.view.scrollDOM.scrollTop,
-      });
-    }
-    tabs.addTab("", "");
-    editor.setValue("");
-    files.newDocument();
-    files.clearDirty();
-    tabs.updateActive({ isDirty: false });
-    preview.update("");
-    updateTitlebar(null);
-    reloadBanner.hidden = true;
-    rebindTabBar();
-  } else {
-    editor.setValue("");
-    preview.update("");
-    files.newDocument();
+  if (tabs.active) {
+    tabs.updateActive({
+      content: editor.getValue(),
+      cursorPos: editor.view.state.selection.main.anchor,
+      scrollTop: editor.view.scrollDOM.scrollTop,
+    });
   }
+  tabs.addTab("", "");
+  editor.setValue("");
+  files.newDocument();
+  files.clearDirty();
+  tabs.updateActive({ isDirty: false });
+  preview.update("");
+  updateTitlebar(null);
+  reloadBanner.hidden = true;
+  rebindTabBar();
+  showSidebarAndTabs();
 }
 
 // ---- Keyboard shortcuts ----------------------------------------------------
@@ -241,13 +224,8 @@ window.addEventListener("keydown", (e) => {
   if (!mod) return;
 
   if (e.key === "o" || e.key === "O") {
-    if (e.shiftKey) {
-      e.preventDefault();
-      void openVault();
-    } else {
-      e.preventDefault();
-      void openFileInteractive();
-    }
+    e.preventDefault();
+    void openFileInteractive();
   } else if (e.key === "s" || e.key === "S") {
     e.preventDefault();
     void files.saveInteractive(editor.getValue());
@@ -256,16 +234,11 @@ window.addEventListener("keydown", (e) => {
     startNewDocument();
   } else if (e.key === "w" || e.key === "W") {
     if (tabs.active) { e.preventDefault(); void handleCloseTab(tabs.activeIdx); }
-  } else if ((e.key === "p" || e.key === "P") && vault.root) {
+  } else if (e.key === "p" || e.key === "P") {
     e.preventDefault();
-    palette.show(
-      vault.files,
-      (file) => { void openVaultFile(file); },
-      headings.getAll(),
-      (h) => { void openHeading(h); },
-    );
+    showPrintModal();
   } else if (e.key === "\\" || e.key === "|") {
-    if (vault.root) { e.preventDefault(); toggleSidebar(); }
+    if (!sidebar.hidden) { e.preventDefault(); toggleSidebar(); }
   }
 });
 
@@ -292,16 +265,19 @@ function switchTab(idx: number): void {
   tabs.activateTab(idx);
   const entry = tabs.active;
   if (!entry) return;
+  const wasDirty = entry.isDirty;
   editor.setValue(entry.content);
   files.clearDirty();
-  tabs.updateActive({ isDirty: false });
+  tabs.updateActive({ isDirty: wasDirty });
   editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
-  tree.setActive(entry.absPath);
-  updateTitlebar(entry.absPath);
+  updateTitlebar(entry.absPath || null);
   reloadBanner.hidden = !entry.externallyModified;
   rebindTabBar();
+  if (entry.absPath) {
+    void dirTree.setRoot(dirOf(entry.absPath), entry.absPath);
+  }
 }
 
 async function handleCloseTab(idx: number): Promise<void> {
@@ -311,148 +287,33 @@ async function handleCloseTab(idx: number): Promise<void> {
     const discard = confirm(`Discard unsaved changes to "${basename(entry.absPath)}"?`);
     if (!discard) return;
   }
-  // Remove this tab from watching before closing
   if (isTauri() && entry.absPath) {
     void invoke("remove_watch", { path: entry.absPath });
   }
   tabs.forceCloseTab(idx);
-  headings.remove(entry.absPath);
-  links.remove(entry.absPath);
   const active = tabs.active;
   if (active) {
+    const wasDirty = active.isDirty;
     editor.setValue(active.content);
     files.clearDirty();
-    tabs.updateActive({ isDirty: false });
+    tabs.updateActive({ isDirty: wasDirty });
     preview.update(active.content);
-    tree.setActive(active.absPath);
-    updateTitlebar(active.absPath);
+    updateTitlebar(active.absPath || null);
     reloadBanner.hidden = !active.externallyModified;
+    if (active.absPath) {
+      void dirTree.setRoot(dirOf(active.absPath), active.absPath);
+    }
   } else {
     editor.setValue("");
     preview.update("");
     files.newDocument();
     reloadBanner.hidden = true;
+    tabBar.hidden = true;
+    sidebar.hidden = true;
+    sidebarResizer.hidden = true;
+    panes.style.gridTemplateColumns = "";
   }
-  if (vault.root && active) tree.setActive(active.absPath);
   rebindTabBar();
-}
-
-// ---- Vault helpers ---------------------------------------------------------
-
-async function openVault(): Promise<void> {
-  const ok = await vault.open();
-  if (!ok) return;
-
-  if (isTauri()) void invoke("clear_all");
-
-  const prevPaths = tabs.entries.map(e => e.absPath);
-  tabs.clearAll();
-  for (const p of prevPaths) headings.remove(p);
-  links.clear();
-
-  sidebar.hidden = false;
-  sidebarResizer.hidden = false;
-  tabBar.hidden = false;
-  panes.classList.add("vault-mode");
-  localStorage.setItem('skymark:vault-root', vault.root!);
-
-  const savedWidth = localStorage.getItem('skymark:sidebar-width');
-  if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
-
-  tree.render(vault.files, null);
-
-  const autoFile =
-    vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ??
-    vault.files[0];
-
-  if (!autoFile) {
-    showToast("No Markdown files found in this folder");
-    return;
-  }
-
-  await openVaultFile(autoFile);
-  void watchCurrentTabs();
-}
-
-async function openVaultFile(file: VaultFile): Promise<void> {
-  if (files.state.isDirty) {
-    const currentName = files.state.path ? basename(files.state.path) : "Untitled";
-    const save = confirm(`Save changes to "${currentName}"?`);
-    if (save) {
-      const saved = await files.saveInteractive(editor.getValue());
-      if (!saved) return;
-    }
-  }
-
-  const existing = tabs.entries.findIndex(e => e.absPath === file.abs_path);
-  if (existing !== -1) { switchTab(existing); return; }
-
-  if (tabs.active) {
-    tabs.updateActive({
-      content: editor.getValue(),
-      cursorPos: editor.view.state.selection.main.anchor,
-      scrollTop: editor.view.scrollDOM.scrollTop,
-    });
-  }
-
-  const content = await files.loadFile(file.abs_path);
-  tabs.addTab(file.abs_path, content);
-  editor.setValue(content);
-  files.clearDirty();
-  tabs.updateActive({ isDirty: false });
-  preview.update(content);
-  tree.setActive(file.abs_path);
-  updateTitlebar(file.abs_path);
-  reloadBanner.hidden = true;
-
-  headings.index(file.abs_path, file.rel_path, file.name, content);
-  links.update(file.abs_path, content, vault.files);
-  tabs.persist();
-  rebindTabBar();
-  // Add this file to the watcher
-  if (isTauri()) {
-    void invoke("add_watch", { path: file.abs_path });
-  }
-}
-
-async function openHeading(h: HeadingEntry): Promise<void> {
-  const existing = tabs.entries.findIndex(e => e.absPath === h.absPath);
-  if (existing !== -1) {
-    switchTab(existing);
-  } else {
-    const content = await files.loadFile(h.absPath);
-    tabs.addTab(h.absPath, content);
-    editor.setValue(content);
-    files.clearDirty();
-    preview.update(content);
-    tree.setActive(h.absPath);
-    updateTitlebar(h.absPath);
-    reloadBanner.hidden = true;
-    headings.index(h.absPath, h.relPath, h.fileName, content);
-    links.update(h.absPath, content, vault.files);
-    tabs.persist();
-    rebindTabBar();
-    // Add this file to the watcher
-    if (isTauri()) {
-      void invoke("add_watch", { path: h.absPath });
-    }
-  }
-  editor.scrollToLine(h.line);
-}
-
-async function watchCurrentTabs(): Promise<void> {
-  if (!isTauri()) return;
-  try {
-    // Use incremental watcher: clear all, then add each tab
-    await invoke("clear_all");
-    for (const entry of tabs.entries) {
-      if (entry.absPath) {
-        await invoke("add_watch", { path: entry.absPath });
-      }
-    }
-  } catch {
-    showToast("File watching unavailable");
-  }
 }
 
 // ---- Watcher events --------------------------------------------------------
@@ -460,7 +321,9 @@ async function watchCurrentTabs(): Promise<void> {
 if (isTauri()) {
   void listen<string>("file-changed", (event) => {
     const changedPath = event.payload.replace(/\\/g, "/");
-    const tabIdx = tabs.entries.findIndex(e => e.absPath.replace(/\\/g, "/") === changedPath);
+    const tabIdx = tabs.entries.findIndex(
+      e => e.absPath.replace(/\\/g, "/") === changedPath,
+    );
     if (tabIdx === -1) return;
     if (tabIdx === tabs.activeIdx) {
       reloadBanner.hidden = false;
@@ -476,24 +339,16 @@ if (isTauri()) {
 if (isTauri()) {
   void listen<string>("skymark://menu", ({ payload }) => {
     switch (payload) {
-      case "new-file":
-        startNewDocument();
-        break;
-      case "open-file":
-        void openFileInteractive();
-        break;
-      case "open-folder":
-        void openVault();
-        break;
-      case "save-file":
-        void files.saveInteractive(editor.getValue());
-        break;
-      case "find":
-        openSearchPanel(editor.view);
-        break;
+      case "new-file":   startNewDocument(); break;
+      case "open-file":  void openFileInteractive(); break;
+      case "save-file":  void files.saveInteractive(editor.getValue()); break;
+      case "find":       openSearchPanel(editor.view); break;
+      case "print-file": showPrintModal(); break;
     }
   });
 }
+
+// ---- Reload banner ---------------------------------------------------------
 
 reloadConfirm.addEventListener("click", () => {
   const active = tabs.active;
@@ -506,13 +361,7 @@ reloadConfirm.addEventListener("click", () => {
     preview.update(content);
     reloadBanner.hidden = true;
     rebindTabBar();
-    if (vault.root) {
-      const relPath = active.absPath.slice(vault.root.length + 1);
-      const fileName = basename(active.absPath);
-      headings.index(active.absPath, relPath, fileName, content);
-      links.update(active.absPath, content, vault.files);
-      tree.setActive(active.absPath);
-    }
+    dirTree.setActive(active.absPath);
   })();
 });
 
@@ -531,7 +380,7 @@ sidebarResizer.addEventListener("pointerdown", (e) => {
   const onMove = (ev: PointerEvent) => {
     const w = Math.min(480, Math.max(160, startWidth + ev.clientX - startX));
     panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
-    localStorage.setItem('skymark:sidebar-width', String(w));
+    localStorage.setItem("skymark:sidebar-width", String(w));
   };
   const cleanup = () => {
     sidebarResizer.removeEventListener("pointermove", onMove);
@@ -546,19 +395,125 @@ sidebarResizer.addEventListener("pointerdown", (e) => {
 function toggleSidebar(): void {
   sidebar.hidden = !sidebar.hidden;
   sidebarResizer.hidden = sidebar.hidden;
-}
-
-function updateTitlebar(filePath: string | null): void {
-  title.textContent = filePath ? basename(filePath) : "Untitled";
-  if (vault.root) {
-    vaultPrefix.textContent = basename(vault.root) + " /";
-    vaultPrefix.hidden = false;
+  if (sidebar.hidden) {
+    panes.style.gridTemplateColumns = "";
   } else {
-    vaultPrefix.hidden = true;
+    const savedWidth = localStorage.getItem("skymark:sidebar-width");
+    const w = savedWidth ?? "220";
+    panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
   }
 }
 
-// ---- Draft recovery on launch ----------------------------------------------
+// ---- Print -----------------------------------------------------------------
+
+function showPrintModal(): void {
+  let mode: "preview" | "source" = "preview";
+
+  const overlay = document.createElement("div");
+  overlay.className = "print-modal-overlay";
+
+  const modal = document.createElement("div");
+  modal.className = "print-modal";
+
+  const titleDiv = document.createElement("div");
+  titleDiv.className = "print-modal__title";
+  titleDiv.textContent = "Print";
+
+  const modeDiv = document.createElement("div");
+  modeDiv.className = "print-modal__mode";
+  modeDiv.textContent = "Mode: ";
+  const modeLabel = document.createElement("strong");
+  modeLabel.className = "print-modal__mode-label";
+  modeLabel.textContent = "Rendered Preview";
+  modeDiv.appendChild(modeLabel);
+
+  const hintDiv = document.createElement("div");
+  hintDiv.className = "print-modal__hint";
+  hintDiv.textContent = "Click Switch to print Markdown source";
+
+  const actionsDiv = document.createElement("div");
+  actionsDiv.className = "print-modal__actions";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "print-modal__cancel";
+  cancelBtn.textContent = "Cancel";
+
+  const switchBtn = document.createElement("button");
+  switchBtn.className = "print-modal__switch";
+  switchBtn.textContent = "Switch";
+
+  const printBtn = document.createElement("button");
+  printBtn.className = "print-modal__print";
+  printBtn.textContent = "Print";
+
+  actionsDiv.appendChild(cancelBtn);
+  actionsDiv.appendChild(switchBtn);
+  actionsDiv.appendChild(printBtn);
+  modal.appendChild(titleDiv);
+  modal.appendChild(modeDiv);
+  modal.appendChild(hintDiv);
+  modal.appendChild(actionsDiv);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  switchBtn.addEventListener("click", () => {
+    if (mode === "preview") {
+      mode = "source";
+      modeLabel.textContent = "Markdown Source";
+      hintDiv.textContent = "Click Switch to print rendered preview";
+    } else {
+      mode = "preview";
+      modeLabel.textContent = "Rendered Preview";
+      hintDiv.textContent = "Click Switch to print Markdown source";
+    }
+  });
+
+  printBtn.addEventListener("click", () => {
+    overlay.remove();
+    doPrint(mode);
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    overlay.remove();
+  });
+}
+
+function doPrint(mode: "preview" | "source"): void {
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;";
+  document.body.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument!;
+  const style = iframeDoc.createElement("style");
+  style.textContent =
+    "body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
+    "pre{white-space:pre-wrap;word-wrap:break-word;font-family:monospace}" +
+    "img{max-width:100%}";
+  iframeDoc.head.appendChild(style);
+
+  if (mode === "preview") {
+    const clone = iframeDoc.adoptNode(preview.getContentEl().cloneNode(true)) as HTMLElement;
+    iframeDoc.body.appendChild(clone);
+  } else {
+    const pre = iframeDoc.createElement("pre");
+    pre.textContent = editor.getValue();
+    iframeDoc.body.appendChild(pre);
+  }
+
+  const cleanup = () => { iframe.remove(); };
+  iframe.contentWindow!.addEventListener("afterprint", cleanup, { once: true });
+  iframe.contentWindow!.focus();
+  iframe.contentWindow!.print();
+  setTimeout(cleanup, 60_000);
+}
+
+// ---- Titlebar --------------------------------------------------------------
+
+function updateTitlebar(filePath: string | null): void {
+  title.textContent = filePath ? basename(filePath) : "Untitled";
+}
+
+// ---- Startup: draft recovery -----------------------------------------------
 
 void (async () => {
   const recoverable = await drafts.checkRecovery();
@@ -571,7 +526,7 @@ void (async () => {
     const keepDraft = confirm(
       `"${label}" was modified externally since your last edit.\n\n` +
       "OK = restore your unsaved draft\n" +
-      "Cancel = use the version on disk"
+      "Cancel = use the version on disk",
     );
     if (keepDraft) {
       const content = await drafts.recoverDraft(draft.draft_key);
@@ -589,31 +544,18 @@ void (async () => {
   }
 })().catch((err) => console.error("[skymark] draft recovery failed:", err));
 
-// ---- Startup vault + tab restoration ----------------------------------------
+// ---- Startup: tab restoration ----------------------------------------------
 
 void (async () => {
-  const savedRoot = localStorage.getItem('skymark:vault-root');
-  if (!savedRoot || !isTauri()) return;
-  const ok = await vault.openFromPath(savedRoot);
-  if (!ok) { localStorage.removeItem('skymark:vault-root'); return; }
-
-  sidebar.hidden = false;
-  sidebarResizer.hidden = false;
-  tabBar.hidden = false;
-  panes.classList.add("vault-mode");
-  const savedWidth = localStorage.getItem('skymark:sidebar-width');
-  if (savedWidth) panes.style.gridTemplateColumns = `${savedWidth}px 4px 1fr 1fr`;
-  tree.render(vault.files, null);
-
+  if (!isTauri()) return;
   const saved = tabs.restore();
+  if (saved.entries.length === 0) return;
+
   for (const { absPath } of saved.entries) {
+    if (!absPath) continue;
     try {
       const opened = await openFile(absPath);
-      const relPath = opened.path.slice(savedRoot.length + 1);
-      const fileName = basename(opened.path);
       tabs.addTab(opened.path, opened.content);
-      headings.index(opened.path, relPath, fileName, opened.content);
-      links.update(opened.path, opened.content, vault.files);
     } catch {
       // file no longer exists
     }
@@ -626,22 +568,14 @@ void (async () => {
     files.clearDirty();
     tabs.updateActive({ isDirty: false });
     preview.update(tabs.active.content);
-    tree.setActive(tabs.active.absPath);
-    updateTitlebar(tabs.active.absPath);
+    updateTitlebar(tabs.active.absPath || null);
     rebindTabBar();
-    // Add all restored tabs to the watcher
-    if (isTauri()) {
-      for (const entry of tabs.entries) {
-        if (entry.absPath) {
-          void invoke("add_watch", { path: entry.absPath });
-        }
-      }
+    showSidebarAndTabs();
+    if (tabs.active.absPath) {
+      void dirTree.setRoot(dirOf(tabs.active.absPath), tabs.active.absPath);
     }
-  } else {
-    const autoFile = vault.files.find(f => /^(index|readme)\.md$/i.test(f.name)) ?? vault.files[0];
-    if (autoFile) {
-      await openVaultFile(autoFile);
-      // openVaultFile already calls add_watch, so no need to call watchCurrentTabs
+    for (const entry of tabs.entries) {
+      if (entry.absPath) void invoke("add_watch", { path: entry.absPath });
     }
   }
 })();
@@ -669,6 +603,12 @@ if (isTauri()) {
 }
 
 // ---- Utilities -------------------------------------------------------------
+
+function dirOf(path: string): string {
+  const sep = path.includes("/") ? "/" : "\\";
+  const idx = path.lastIndexOf(sep);
+  return idx > 0 ? path.slice(0, idx) : path;
+}
 
 function basename(path: string): string {
   const sep = path.includes("\\") ? "\\" : "/";

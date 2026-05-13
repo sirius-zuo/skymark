@@ -74,7 +74,7 @@ body {
 
 @media print {
   .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
-  #toast-root, #palette-overlay { display: none !important; }
+  #toast-root { display: none !important; }
   .panes { display: block; }
   .preview-pane { width: 100%; border: none; padding: 0; }
   .preview-content { max-width: none; }
@@ -144,7 +144,7 @@ body {
 
 .editor-pane { border-right: var(--pane-divider); background: var(--color-surface); }
 .editor-pane .cm-editor { flex: 1; height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
-.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6); }
+.editor-pane .cm-scroller { padding: var(--space-5) var(--space-6) var(--space-5) 0; }
 
 .preview-pane { background: var(--color-surface); overflow-y: auto; padding: var(--space-5) var(--space-6); }
 .preview-pane .preview-content {
@@ -211,10 +211,6 @@ body {
 
 .toast.visible { opacity: 1; }
 
-/* ── Vault mode layout ─────────────────────────────────────────────────── */
-
-.panes.vault-mode { grid-template-columns: 220px 4px 1fr 1fr; }
-
 /* ── Sidebar ───────────────────────────────────────────────────────────── */
 
 .sidebar-pane {
@@ -248,74 +244,6 @@ body {
   cursor: pointer;
 }
 .tree-dir-toggle:hover { color: var(--color-text); }
-
-/* ── Palette overlay ───────────────────────────────────────────────────── */
-
-#palette-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 200;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-}
-#palette-overlay.visible { display: flex; }
-
-.palette-card {
-  background: var(--color-surface);
-  border: var(--pane-divider);
-  border-radius: 8px;
-  width: 560px;
-  max-width: calc(100vw - 48px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.palette-input {
-  border: none;
-  border-bottom: var(--pane-divider);
-  padding: var(--space-3) var(--space-4);
-  font-size: 14px;
-  font-family: var(--font-ui);
-  outline: none;
-  width: 100%;
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.palette-input:focus { border-bottom-color: var(--color-accent); }
-
-.palette-results {
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.palette-item {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.palette-item:hover,
-.palette-item.selected { background: var(--color-border); }
-
-.palette-item-name { font-weight: 500; font-size: 13px; color: var(--color-text); flex-shrink: 0; }
-.palette-item-path { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
-
-/* ── Vault titlebar prefix ─────────────────────────────────────────────── */
-
-#vault-prefix {
-  font-weight: 500;
-  color: var(--color-text-muted);
-  margin-right: var(--space-1);
-}
 
 /* ---- Tab bar ---------------------------------------------------------------- */
 
@@ -388,37 +316,6 @@ body {
   color: var(--color-text);
 }
 #reload-banner button:hover { background: var(--color-border); }
-
-/* ---- Heading palette items -------------------------------------------------- */
-
-.palette-divider {
-  padding: var(--space-1) var(--space-4);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-top: var(--pane-divider);
-  margin-top: var(--space-1);
-}
-.palette-item-level {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  border-radius: 3px;
-  padding: 0 3px;
-  flex-shrink: 0;
-}
-
-/* ---- Broken-link badge ----------------------------------------------------- */
-
-.tree-badge-broken {
-  margin-left: var(--space-1);
-  font-size: 11px;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
 
 /* ---- Update banner --------------------------------------------------------- */
 
@@ -508,3 +405,67 @@ body {
   margin: 0 4px;
   flex-shrink: 0;
 }
+
+/* ---- Unsupported tree file ------------------------------------------------- */
+
+.tree-file--unsupported {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---- Print modal ----------------------------------------------------------- */
+
+.print-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.print-modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--space-5);
+  min-width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.print-modal__title {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.print-modal__mode,
+.print-modal__hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.print-modal__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-1);
+}
+
+.print-modal__actions button {
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  border: var(--pane-divider);
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.print-modal__actions button:hover { background: var(--color-border); }
+.print-modal__print { font-weight: 500; }
