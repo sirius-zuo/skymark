@@ -483,30 +483,28 @@ function doPrint(mode: "preview" | "source"): void {
   iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;";
   document.body.appendChild(iframe);
 
+  const iframeDoc = iframe.contentDocument!;
+  const style = iframeDoc.createElement("style");
+  style.textContent =
+    "body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
+    "pre{white-space:pre-wrap;word-wrap:break-word;font-family:monospace}" +
+    "img{max-width:100%}";
+  iframeDoc.head.appendChild(style);
+
+  if (mode === "preview") {
+    const clone = iframeDoc.adoptNode(preview.getContentEl().cloneNode(true)) as HTMLElement;
+    iframeDoc.body.appendChild(clone);
+  } else {
+    const pre = iframeDoc.createElement("pre");
+    pre.textContent = editor.getValue();
+    iframeDoc.body.appendChild(pre);
+  }
+
   const cleanup = () => { iframe.remove(); };
-  iframe.addEventListener("load", () => {
-    const iframeDoc = iframe.contentDocument!;
-    const style = iframeDoc.createElement("style");
-    style.textContent =
-      "body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
-      "pre{white-space:pre-wrap;word-wrap:break-word;font-family:monospace}" +
-      "img{max-width:100%}";
-    iframeDoc.head.appendChild(style);
-
-    if (mode === "preview") {
-      const clone = iframeDoc.adoptNode(preview.getContentEl().cloneNode(true)) as HTMLElement;
-      iframeDoc.body.appendChild(clone);
-    } else {
-      const pre = iframeDoc.createElement("pre");
-      pre.textContent = editor.getValue();
-      iframeDoc.body.appendChild(pre);
-    }
-
-    iframe.contentWindow!.addEventListener("afterprint", cleanup, { once: true });
-    iframe.contentWindow!.focus();
-    iframe.contentWindow!.print();
-    setTimeout(cleanup, 60_000);
-  });
+  iframe.contentWindow!.addEventListener("afterprint", cleanup, { once: true });
+  iframe.contentWindow!.focus();
+  iframe.contentWindow!.print();
+  setTimeout(cleanup, 60_000);
 }
 
 // ---- Titlebar --------------------------------------------------------------
