@@ -16,8 +16,8 @@ export async function exportHtml(previewEl: HTMLElement, title: string): Promise
   }
 }
 
-export async function exportPdf(): Promise<void> {
-  await printWindow();
+export async function exportPdf(previewEl: HTMLElement): Promise<void> {
+  await printWindow(previewEl.innerHTML);
 }
 
 function buildHtml(title: string, bodyHtml: string): string {

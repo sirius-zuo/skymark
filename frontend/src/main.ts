@@ -4,7 +4,7 @@ import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
-import { isTauri, openFile, printWindow } from "./api";
+import { isTauri, openFile, printWindow, escapeHtml } from "./api";
 import { createDirTree } from "./dir-tree";
 import { createTabHandle } from "./tabs";
 import { invoke } from "@tauri-apps/api/core";
@@ -479,17 +479,11 @@ function showPrintModal(): void {
 }
 
 async function doPrint(mode: "preview" | "source"): Promise<void> {
-  let sourceEl: HTMLElement | null = null;
-  if (mode === "source") {
-    document.body.classList.add("print-source");
-    sourceEl = document.createElement("pre");
-    sourceEl.id = "skymark-print-source";
-    sourceEl.textContent = editor.getValue();
-    document.body.appendChild(sourceEl);
-  }
-  await printWindow();
-  document.body.classList.remove("print-source");
-  sourceEl?.remove();
+  const html =
+    mode === "preview"
+      ? preview.getContentEl().innerHTML
+      : `<pre>${escapeHtml(editor.getValue())}</pre>`;
+  await printWindow(html);
 }
 
 // ---- Titlebar --------------------------------------------------------------
