@@ -479,32 +479,17 @@ function showPrintModal(): void {
 }
 
 function doPrint(mode: "preview" | "source"): void {
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;";
-  document.body.appendChild(iframe);
-
-  const iframeDoc = iframe.contentDocument!;
-  const style = iframeDoc.createElement("style");
-  style.textContent =
-    "body{font-family:sans-serif;padding:2rem;max-width:800px;margin:auto}" +
-    "pre{white-space:pre-wrap;word-wrap:break-word;font-family:monospace}" +
-    "img{max-width:100%}";
-  iframeDoc.head.appendChild(style);
-
-  if (mode === "preview") {
-    const clone = iframeDoc.adoptNode(preview.getContentEl().cloneNode(true)) as HTMLElement;
-    iframeDoc.body.appendChild(clone);
-  } else {
-    const pre = iframeDoc.createElement("pre");
-    pre.textContent = editor.getValue();
-    iframeDoc.body.appendChild(pre);
+  let sourceEl: HTMLElement | null = null;
+  if (mode === "source") {
+    document.body.classList.add("print-source");
+    sourceEl = document.createElement("pre");
+    sourceEl.id = "skymark-print-source";
+    sourceEl.textContent = editor.getValue();
+    document.body.appendChild(sourceEl);
   }
-
-  const cleanup = () => { iframe.remove(); };
-  iframe.contentWindow!.addEventListener("afterprint", cleanup, { once: true });
-  iframe.contentWindow!.focus();
-  iframe.contentWindow!.print();
-  setTimeout(cleanup, 60_000);
+  window.print();
+  document.body.classList.remove("print-source");
+  sourceEl?.remove();
 }
 
 // ---- Titlebar --------------------------------------------------------------

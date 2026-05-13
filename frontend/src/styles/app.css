@@ -78,6 +78,15 @@ body {
   .panes { display: block; }
   .preview-pane { width: 100%; border: none; padding: 0; }
   .preview-content { max-width: none; }
+
+  body.print-source .panes { display: none !important; }
+  #skymark-print-source {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 2rem;
+  }
 }
 /* ---- CodeMirror search panel ---------------------------------------------- */
 
