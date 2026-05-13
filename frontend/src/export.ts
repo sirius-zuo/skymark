@@ -1,5 +1,5 @@
 import { save } from "@tauri-apps/plugin-dialog";
-import { exportFile } from "./api";
+import { exportFile, printWindow } from "./api";
 import { showToast } from "./toast";
 
 export async function exportHtml(previewEl: HTMLElement, title: string): Promise<void> {
@@ -16,8 +16,8 @@ export async function exportHtml(previewEl: HTMLElement, title: string): Promise
   }
 }
 
-export function exportPdf(): void {
-  window.print();
+export async function exportPdf(): Promise<void> {
+  await printWindow();
 }
 
 function buildHtml(title: string, bodyHtml: string): string {

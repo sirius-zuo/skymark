@@ -4,7 +4,7 @@ import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
-import { isTauri, openFile } from "./api";
+import { isTauri, openFile, printWindow } from "./api";
 import { createDirTree } from "./dir-tree";
 import { createTabHandle } from "./tabs";
 import { invoke } from "@tauri-apps/api/core";
@@ -470,7 +470,7 @@ function showPrintModal(): void {
 
   printBtn.addEventListener("click", () => {
     overlay.remove();
-    doPrint(mode);
+    void doPrint(mode);
   });
 
   cancelBtn.addEventListener("click", () => {
@@ -478,7 +478,7 @@ function showPrintModal(): void {
   });
 }
 
-function doPrint(mode: "preview" | "source"): void {
+async function doPrint(mode: "preview" | "source"): Promise<void> {
   let sourceEl: HTMLElement | null = null;
   if (mode === "source") {
     document.body.classList.add("print-source");
@@ -487,7 +487,7 @@ function doPrint(mode: "preview" | "source"): void {
     sourceEl.textContent = editor.getValue();
     document.body.appendChild(sourceEl);
   }
-  window.print();
+  await printWindow();
   document.body.classList.remove("print-source");
   sourceEl?.remove();
 }

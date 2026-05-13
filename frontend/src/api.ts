@@ -54,6 +54,14 @@ export async function exportFile(path: string, content: string): Promise<void> {
   await invoke<void>("export_file", { path, content });
 }
 
+export async function printWindow(): Promise<void> {
+  if (isTauri()) {
+    await invoke("plugin:webview|print");
+  } else {
+    window.print();
+  }
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
