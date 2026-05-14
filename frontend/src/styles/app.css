@@ -153,6 +153,7 @@ body {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .pane { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
@@ -231,7 +232,7 @@ body {
 .sidebar-pane {
   border-right: var(--pane-divider);
   background: var(--color-bg);
-  overflow-y: auto !important;
+  overflow: overlay;
   font-size: 13px;
   user-select: none;
   height: 100%;
