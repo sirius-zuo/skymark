@@ -80,7 +80,9 @@ body {
   .preview-content { max-width: none !important; }
 
   body.print-source .panes { display: none !important; }
-  body.print-source #app > .titlebar, body.print-source #tab-bar { display: none !important; }
+  body.print-source .titlebar, body.print-source #tab-bar, body.print-source #update-banner-root, body.print-source #toast-root { display: none !important; }
+  body.print-source { margin: 0 !important; padding: 0 !important; }
+  body.print-source #app { display: block !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
   #skymark-print-source {
     display: block !important;
     white-space: pre-wrap;
@@ -88,6 +90,7 @@ body {
     font-family: monospace;
     font-size: 13px;
     padding: 2rem;
+    margin: 0;
   }
 }
 /* ---- CodeMirror search panel ---------------------------------------------- */
