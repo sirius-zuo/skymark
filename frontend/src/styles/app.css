@@ -232,9 +232,11 @@ body {
 .sidebar-pane {
   border-right: var(--pane-divider);
   background: var(--color-bg);
-  overflow: auto !important;
+  overflow-y: auto !important;
   font-size: 13px;
   user-select: none;
+  min-height: 0;
+  height: 100%;
 }
 
 .sidebar-pane ul { list-style: none; margin: 0; padding: 0; }
