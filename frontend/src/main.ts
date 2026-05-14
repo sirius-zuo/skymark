@@ -481,18 +481,27 @@ function showPrintModal(): void {
 async function doPrint(mode: "preview" | "source"): Promise<void> {
   let sourceEl: HTMLElement | null = null;
   if (mode === "source") {
+    console.log("[print] switching to source mode");
     document.body.classList.add("print-source");
     sourceEl = document.createElement("pre");
     sourceEl.id = "skymark-print-source";
     sourceEl.textContent = editor.getValue();
     document.body.appendChild(sourceEl);
+    console.log("[print] source element appended, body classes:", document.body.className);
+    // Wait for browser to reflow before opening print dialog
+    await new Promise((r) => setTimeout(r, 300));
   }
   await printWindow();
-  // Delay cleanup to let the print dialog render the source content
-  setTimeout(() => {
+  // Clean up after print dialog closes
+  const cleanup = () => {
+    console.log("[print] cleaning up");
     document.body.classList.remove("print-source");
     sourceEl?.remove();
-  }, 500);
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  // Fallback: cleanup after 10s if afterprint doesn't fire
+  setTimeout(cleanup, 10000);
 }
 
 // ---- Titlebar --------------------------------------------------------------

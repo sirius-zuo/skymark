@@ -80,7 +80,9 @@ body {
   .preview-content { max-width: none !important; }
 
   body.print-source .panes { display: none !important; }
+  body.print-source #app > .titlebar, body.print-source #tab-bar { display: none !important; }
   #skymark-print-source {
+    display: block !important;
     white-space: pre-wrap;
     word-wrap: break-word;
     font-family: monospace;
