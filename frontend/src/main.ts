@@ -338,11 +338,12 @@ if (isTauri()) {
 
 if (isTauri()) {
   void listen<string>("skymark://menu", ({ payload }) => {
+    console.log("[menu] received:", payload);
     switch (payload) {
       case "new-file":   startNewDocument(); break;
       case "open-file":  void openFileInteractive(); break;
       case "save-file":  void files.saveInteractive(editor.getValue()); break;
-      case "close-file": void handleCloseTab(tabs.activeIdx); break;
+      case "close-file": console.log("[menu] closing tab", tabs.activeIdx); void handleCloseTab(tabs.activeIdx); break;
       case "find":       openSearchPanel(editor.view); break;
       case "print-file": showPrintModal(); break;
     }

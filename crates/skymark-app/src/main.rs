@@ -29,6 +29,7 @@ fn main() {
 
             app.on_menu_event(|app, event| match event.id().as_ref() {
                 "new-file" | "open-file" | "save-file" | "close-file" | "find" | "print-file" => {
+                    println!("[menu] Rust received: {}", event.id().as_ref());
                     let _ = app.emit("skymark://menu", event.id().as_ref());
                 }
                 _ => {}
