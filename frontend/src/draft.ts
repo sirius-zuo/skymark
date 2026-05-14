@@ -25,6 +25,8 @@ export function createDraftHandle(): DraftHandle {
 
   async function flush(): Promise<void> {
     if (!pending || !isTauri() || !getContent) return;
+    // Don't save drafts for untitled documents or if no path is set
+    if (!currentPath) return;
     pending = false;
     try {
       const key = await saveDraft(currentPath, getContent());

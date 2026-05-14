@@ -510,13 +510,60 @@ function updateTitlebar(filePath: string | null): void {
   title.textContent = filePath ? basename(filePath) : "Untitled";
 }
 
-// ---- Startup: draft recovery -----------------------------------------------
+// ---- Startup: restore tabs then recover drafts ----------------------------
 
 void (async () => {
+  // Phase 1: Restore tabs from previous session
+  if (isTauri()) {
+    const saved = tabs.restore();
+    if (saved.entries.length > 0) {
+      for (const { absPath } of saved.entries) {
+        if (!absPath) continue;
+        try {
+          const opened = await openFile(absPath);
+          tabs.addTab(opened.path, opened.content);
+        } catch {
+          // file no longer exists
+        }
+      }
+      if (saved.activeIdx >= 0 && saved.activeIdx < tabs.entries.length) {
+        tabs.activateTab(saved.activeIdx);
+      }
+      if (tabs.active) {
+        editor.setValue(tabs.active.content);
+        files.clearDirty();
+        tabs.updateActive({ isDirty: false });
+        preview.update(tabs.active.content);
+        updateTitlebar(tabs.active.absPath || null);
+        rebindTabBar();
+        showSidebarAndTabs();
+        if (tabs.active.absPath) {
+          void dirTree.setRoot(dirOf(tabs.active.absPath), tabs.active.absPath);
+        }
+        for (const entry of tabs.entries) {
+          if (entry.absPath) void invoke("add_watch", { path: entry.absPath });
+        }
+      }
+    }
+  }
+
+  // Phase 2: Recover drafts (only if they match current tab)
   const recoverable = await drafts.checkRecovery();
   if (recoverable.length === 0) return;
 
-  const draft = recoverable[0];
+  if (tabs.entries.length === 0) {
+    for (const d of recoverable) await drafts.dismissDraft(d.draft_key);
+    return;
+  }
+
+  const activePath = tabs.active?.absPath ?? null;
+  const matchingDraft = recoverable.find(d => d.original_path === activePath);
+  if (!matchingDraft) {
+    for (const d of recoverable) await drafts.dismissDraft(d.draft_key);
+    return;
+  }
+
+  const draft = matchingDraft;
   const label = draft.original_path ? basename(draft.original_path) : "Untitled";
 
   if (draft.needs_resolution) {
@@ -539,43 +586,10 @@ void (async () => {
     preview.update(content);
     showToast(`Recovered unsaved changes to "${label}"`);
   }
-})().catch((err) => console.error("[skymark] draft recovery failed:", err));
-
-// ---- Startup: tab restoration ----------------------------------------------
-
-void (async () => {
-  if (!isTauri()) return;
-  const saved = tabs.restore();
-  if (saved.entries.length === 0) return;
-
-  for (const { absPath } of saved.entries) {
-    if (!absPath) continue;
-    try {
-      const opened = await openFile(absPath);
-      tabs.addTab(opened.path, opened.content);
-    } catch {
-      // file no longer exists
-    }
+  for (const d of recoverable) {
+    if (d.draft_key !== draft.draft_key) await drafts.dismissDraft(d.draft_key);
   }
-  if (saved.activeIdx >= 0 && saved.activeIdx < tabs.entries.length) {
-    tabs.activateTab(saved.activeIdx);
-  }
-  if (tabs.active) {
-    editor.setValue(tabs.active.content);
-    files.clearDirty();
-    tabs.updateActive({ isDirty: false });
-    preview.update(tabs.active.content);
-    updateTitlebar(tabs.active.absPath || null);
-    rebindTabBar();
-    showSidebarAndTabs();
-    if (tabs.active.absPath) {
-      void dirTree.setRoot(dirOf(tabs.active.absPath), tabs.active.absPath);
-    }
-    for (const entry of tabs.entries) {
-      if (entry.absPath) void invoke("add_watch", { path: entry.absPath });
-    }
-  }
-})();
+})().catch((err) => console.error("[skymark] startup recovery failed:", err));
 
 // ---- Save-on-close ---------------------------------------------------------
 
