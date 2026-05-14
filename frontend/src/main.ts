@@ -342,6 +342,7 @@ if (isTauri()) {
       case "new-file":   startNewDocument(); break;
       case "open-file":  void openFileInteractive(); break;
       case "save-file":  void files.saveInteractive(editor.getValue()); break;
+      case "close-file": void handleCloseTab(tabs.activeIdx); break;
       case "find":       openSearchPanel(editor.view); break;
       case "print-file": showPrintModal(); break;
     }

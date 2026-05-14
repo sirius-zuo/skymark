@@ -2,7 +2,7 @@
 
 use tauri::{menu::IsMenuItem, menu::PredefinedMenuItem, App};
 
-/// File menu: New | Open... | sep | Save | sep | Print...
+/// File menu: New | Open... | sep | Close Window | Save | sep | Print...
 /// Edit menu: Find (appended after Select All)
 pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
     if let Some(menu) = app.menu() {
@@ -24,6 +24,13 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                         true,
                         Some("CmdOrCtrl+S"),
                     )?;
+                    let close = tauri::menu::MenuItem::with_id(
+                        app,
+                        "close-file",
+                        "Close Window",
+                        true,
+                        Some("CmdOrCtrl+W"),
+                    )?;
                     let sep1 = PredefinedMenuItem::separator(app)?;
                     let open = tauri::menu::MenuItem::with_id(
                         app,
@@ -42,6 +49,7 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                     sub.prepend(&print)?;
                     sub.prepend(&sep2)?;
                     sub.prepend(&save)?;
+                    sub.prepend(&close)?;
                     sub.prepend(&sep1)?;
                     sub.prepend(&open)?;
                     sub.prepend(&new)?;
