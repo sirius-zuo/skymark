@@ -236,7 +236,7 @@ body {
   font-size: 13px;
   user-select: none;
   min-height: 0;
-  flex: 1 1 0;
+  display: block;
 }
 
 .sidebar-pane ul { list-style: none; margin: 0; padding: 0; }
