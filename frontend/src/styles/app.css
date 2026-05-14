@@ -232,7 +232,7 @@ body {
 .sidebar-pane {
   border-right: var(--pane-divider);
   background: var(--color-bg);
-  overflow: overlay;
+  overflow-y: scroll;
   font-size: 13px;
   user-select: none;
   height: 100%;
