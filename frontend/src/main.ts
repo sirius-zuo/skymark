@@ -488,8 +488,11 @@ async function doPrint(mode: "preview" | "source"): Promise<void> {
     document.body.appendChild(sourceEl);
   }
   await printWindow();
-  document.body.classList.remove("print-source");
-  sourceEl?.remove();
+  // Delay cleanup to let the print dialog render the source content
+  setTimeout(() => {
+    document.body.classList.remove("print-source");
+    sourceEl?.remove();
+  }, 500);
 }
 
 // ---- Titlebar --------------------------------------------------------------
