@@ -31,7 +31,7 @@ export function createExportDropdown(
   pdfItem.textContent = "Print / Save as PDF";
   pdfItem.addEventListener("click", () => {
     menu.hidden = true;
-    void exportPdf(previewEl);
+    void exportPdf();
   });
 
   menu.appendChild(htmlItem);

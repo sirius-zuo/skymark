@@ -75,9 +75,9 @@ body {
 @media print {
   .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
   #toast-root { display: none !important; }
-  .panes { display: block; }
-  .preview-pane { width: 100%; border: none; padding: 0; }
-  .preview-content { max-width: none; }
+  .panes { display: block !important; grid-template-columns: 1fr !important; width: 100% !important; }
+  .preview-pane { width: 100% !important; border: none; padding: 0; }
+  .preview-content { max-width: none !important; }
 
   body.print-source .panes { display: none !important; }
   #skymark-print-source {
