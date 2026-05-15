@@ -150,7 +150,7 @@ body {
 .panes {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 4px 1fr;
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
@@ -304,11 +304,12 @@ body {
 .tab-item .tab-close { margin-left: auto; padding: 0 2px; flex-shrink: 0; opacity: 0.5; }
 .tab-item .tab-close:hover { opacity: 1; }
 
-/* ---- Sidebar resizer -------------------------------------------------------- */
+/* ---- Resizers -------------------------------------------------------------- */
 
-#sidebar-resizer { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; }
-#sidebar-resizer:hover,
-#sidebar-resizer:active { background: var(--color-accent); }
+#sidebar-resizer,
+#pane-resizer { width: 4px; cursor: col-resize; background: transparent; flex-shrink: 0; }
+#sidebar-resizer:hover, #sidebar-resizer:active,
+#pane-resizer:hover, #pane-resizer:active { background: var(--color-accent); }
 
 /* ---- Reload banner ---------------------------------------------------------- */
 

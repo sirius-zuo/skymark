@@ -29,6 +29,7 @@ const reloadBannerEl = document.getElementById("reload-banner") as HTMLElement |
 const reloadConfirmEl = document.getElementById("reload-confirm") as HTMLElement | null;
 const reloadDismissEl = document.getElementById("reload-dismiss") as HTMLElement | null;
 const sidebarResizerEl = document.getElementById("sidebar-resizer") as HTMLElement | null;
+const paneResizerEl = document.getElementById("pane-resizer") as HTMLElement | null;
 const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonElement | null;
 const exportDropdownRootEl = document.getElementById("export-dropdown-root") as HTMLElement | null;
 const updateBannerRootEl = document.getElementById("update-banner-root") as HTMLElement | null;
@@ -36,8 +37,8 @@ const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButt
 
 if (!editorHost || !previewHost || !sidebarEl || !titleEl ||
     !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
-    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !themeToggleEl ||
-    !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
+    !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !paneResizerEl ||
+    !themeToggleEl || !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
   throw new Error("missing layout host elements");
 }
 
@@ -50,6 +51,7 @@ const reloadBanner = reloadBannerEl;
 const reloadConfirm = reloadConfirmEl;
 const reloadDismiss = reloadDismissEl;
 const sidebarResizer = sidebarResizerEl;
+const paneResizer = paneResizerEl;
 const themeToggle = themeToggleEl;
 const exportDropdownRoot = exportDropdownRootEl;
 const updateBannerRoot = updateBannerRootEl;
@@ -128,6 +130,24 @@ editor.setValue(initial);
 preview.update(initial);
 files.clearDirty();
 
+// ---- Pane split helpers ----------------------------------------------------
+
+function getPaneSplit(): number {
+  const saved = localStorage.getItem("skymark:pane-split");
+  const f = saved ? parseFloat(saved) : 0.5;
+  return Math.min(0.8, Math.max(0.2, isNaN(f) ? 0.5 : f));
+}
+
+function applySplitColumns(): void {
+  const split = getPaneSplit();
+  if (sidebar.hidden) {
+    panes.style.gridTemplateColumns = `${split}fr 4px ${1 - split}fr`;
+  } else {
+    const savedW = localStorage.getItem("skymark:sidebar-width") ?? "220";
+    panes.style.gridTemplateColumns = `${savedW}px 4px ${split}fr 4px ${1 - split}fr`;
+  }
+}
+
 // ---- Sidebar / tab visibility ----------------------------------------------
 
 function showSidebarAndTabs(): void {
@@ -135,9 +155,7 @@ function showSidebarAndTabs(): void {
   if (sidebar.hidden) {
     sidebar.hidden = false;
     sidebarResizer.hidden = false;
-    const savedWidth = localStorage.getItem("skymark:sidebar-width");
-    const w = savedWidth ?? "220";
-    panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
+    applySplitColumns();
   }
 }
 
@@ -363,7 +381,7 @@ async function handleCloseTab(idx: number): Promise<void> {
     tabBar.hidden = true;
     sidebar.hidden = true;
     sidebarResizer.hidden = true;
-    panes.style.gridTemplateColumns = "";
+    applySplitColumns();
   }
   rebindTabBar();
 }
@@ -431,7 +449,8 @@ sidebarResizer.addEventListener("pointerdown", (e) => {
   sidebarResizer.setPointerCapture(e.pointerId);
   const onMove = (ev: PointerEvent) => {
     const w = Math.min(480, Math.max(160, startWidth + ev.clientX - startX));
-    panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
+    const split = getPaneSplit();
+    panes.style.gridTemplateColumns = `${w}px 4px ${split}fr 4px ${1 - split}fr`;
     localStorage.setItem("skymark:sidebar-width", String(w));
   };
   const cleanup = () => {
@@ -444,16 +463,37 @@ sidebarResizer.addEventListener("pointerdown", (e) => {
   sidebarResizer.addEventListener("pointercancel", cleanup);
 });
 
+// ---- Pane resize -----------------------------------------------------------
+
+paneResizer.addEventListener("pointerdown", (e) => {
+  paneResizer.setPointerCapture(e.pointerId);
+  const onMove = (ev: PointerEvent) => {
+    const panesRect = panes.getBoundingClientRect();
+    const sidebarTaken = sidebar.hidden ? 0 : sidebar.offsetWidth + 4;
+    const available = panesRect.width - sidebarTaken - 4;
+    const editorW = ev.clientX - panesRect.left - sidebarTaken;
+    const split = Math.min(0.8, Math.max(0.2, editorW / available));
+    if (sidebar.hidden) {
+      panes.style.gridTemplateColumns = `${split}fr 4px ${1 - split}fr`;
+    } else {
+      panes.style.gridTemplateColumns = `${sidebar.offsetWidth}px 4px ${split}fr 4px ${1 - split}fr`;
+    }
+    localStorage.setItem("skymark:pane-split", String(split));
+  };
+  const cleanup = () => {
+    paneResizer.removeEventListener("pointermove", onMove);
+    paneResizer.removeEventListener("pointerup", cleanup);
+    paneResizer.removeEventListener("pointercancel", cleanup);
+  };
+  paneResizer.addEventListener("pointermove", onMove);
+  paneResizer.addEventListener("pointerup", cleanup);
+  paneResizer.addEventListener("pointercancel", cleanup);
+});
+
 function toggleSidebar(): void {
   sidebar.hidden = !sidebar.hidden;
   sidebarResizer.hidden = sidebar.hidden;
-  if (sidebar.hidden) {
-    panes.style.gridTemplateColumns = "";
-  } else {
-    const savedWidth = localStorage.getItem("skymark:sidebar-width");
-    const w = savedWidth ?? "220";
-    panes.style.gridTemplateColumns = `${w}px 4px 1fr 1fr`;
-  }
+  applySplitColumns();
 }
 
 // ---- Print -----------------------------------------------------------------
