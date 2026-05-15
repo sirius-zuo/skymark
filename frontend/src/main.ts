@@ -696,15 +696,39 @@ if (isTauri()) {
     const win = getCurrentWindow();
     let closing = false;
     await win.onCloseRequested(async (event: { preventDefault(): void }) => {
-      if (!files.state.isDirty && !tabs.entries.some(e => e.isDirty)) return;
+      const dirtyTabs = tabs.entries.filter(e => e.isDirty);
+      if (dirtyTabs.length === 0 && !files.state.isDirty) return;
       if (closing) { event.preventDefault(); return; }
       closing = true;
       event.preventDefault();
-      const saved = await files.saveInteractive(editor.getValue());
-      if (!saved) {
-        const discard = confirm("Discard unsaved changes and close?");
-        if (!discard) { closing = false; return; }
+
+      const label = dirtyTabs.length === 1
+        ? basename(dirtyTabs[0].absPath || "Untitled")
+        : `${dirtyTabs.length} files`;
+      const choice = await promptDirtyClose(label);
+
+      if (choice === "cancel") { closing = false; return; }
+
+      if (choice === "save") {
+        for (const entry of tabs.entries) {
+          if (!entry.isDirty) continue;
+          if (entry === tabs.active) {
+            const saved = await files.saveInteractive(editor.getValue());
+            if (!saved) { closing = false; return; }
+          } else if (entry.absPath) {
+            try {
+              await saveFileApi(entry.absPath, entry.content);
+              drafts.onExplicitSave(entry.absPath);
+              entry.isDirty = false;
+            } catch {
+              showToast(`Could not save "${basename(entry.absPath)}"`);
+              closing = false;
+              return;
+            }
+          }
+        }
       }
+
       await win.destroy();
     });
   })();
