@@ -118,7 +118,7 @@ files.onStateChange((s) => {
 
 files.onAfterSave((_path) => {
   drafts.onExplicitSave(_path);
-  tabs.updateActive({ isDirty: false });
+  tabs.updateActive({ absPath: _path, isDirty: false });
   rebindTabBar();
   if (tabs.active?.absPath) {
     dirTree.setActive(tabs.active.absPath);
@@ -719,10 +719,18 @@ if (isTauri()) {
               closing = false;
               return;
             }
+          } else {
+            // Untitled non-active tab — switch to it so saveInteractive can show a Save As dialog
+            const entryIdx = tabs.entries.indexOf(entry);
+            switchTab(entryIdx);
+            files.setPath(null);
+            const saved = await files.saveInteractive(editor.getValue());
+            if (!saved) { closing = false; return; }
           }
         }
       }
 
+      tabs.persist();
       await win.destroy();
     });
   })();
