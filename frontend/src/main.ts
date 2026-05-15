@@ -702,16 +702,10 @@ if (isTauri()) {
       closing = true;
       event.preventDefault();
 
-      const label = dirtyTabs.length === 1
-        ? basename(dirtyTabs[0].absPath || "Untitled")
-        : `${dirtyTabs.length} files`;
-      const choice = await promptDirtyClose(label);
-
-      if (choice === "cancel") { closing = false; return; }
-
-      if (choice === "save") {
-        for (const entry of tabs.entries) {
-          if (!entry.isDirty) continue;
+      for (const entry of dirtyTabs) {
+        const choice = await promptDirtyClose(basename(entry.absPath || "Untitled"));
+        if (choice === "cancel") { closing = false; return; }
+        if (choice === "save") {
           if (entry === tabs.active) {
             const saved = await files.saveInteractive(editor.getValue());
             if (!saved) { closing = false; return; }
