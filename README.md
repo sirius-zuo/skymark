@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/skymark-banner.png" alt="Skymark Markdown Editor and Previewer" width="1280">
+</p>
+
 # Skymark
 
 A fast, lightweight Markdown editor for the desktop. Built with Rust and Tauri 2.
