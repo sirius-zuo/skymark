@@ -12,6 +12,7 @@ export interface FileFlow {
   onAfterSave(listener: (path: string) => void): void;  // NEW
   markDirty(): void;
   clearDirty(): void;
+  setPath(path: string | null): void;
   openInteractive(): Promise<string | null>; // returns loaded content or null if cancelled
   saveInteractive(content: string): Promise<boolean>; // false if cancelled
   loadFile(absPath: string): Promise<string>;
@@ -46,6 +47,9 @@ export function createFileFlow(): FileFlow {
         state.isDirty = false;
         emit();
       }
+    },
+    setPath(path) {
+      state.path = path;
     },
     async openInteractive() {
       if (!isTauri()) {

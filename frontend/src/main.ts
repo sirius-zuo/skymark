@@ -4,7 +4,7 @@ import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
-import { isTauri, openFile, printWindow } from "./api";
+import { isTauri, openFile, saveFile as saveFileApi, printWindow } from "./api";
 import { createDirTree } from "./dir-tree";
 import { createTabHandle } from "./tabs";
 import { invoke } from "@tauri-apps/api/core";
@@ -280,12 +280,64 @@ function switchTab(idx: number): void {
   }
 }
 
+function promptDirtyClose(filename: string): Promise<"save" | "discard" | "cancel"> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "print-modal-overlay";
+    const modal = document.createElement("div");
+    modal.className = "print-modal";
+    const titleDiv = document.createElement("div");
+    titleDiv.className = "print-modal__title";
+    titleDiv.textContent = "Unsaved Changes";
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "print-modal__mode";
+    msgDiv.textContent = `"${filename}" has unsaved changes.`;
+    const actionsDiv = document.createElement("div");
+    actionsDiv.className = "print-modal__actions";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "print-modal__cancel";
+    cancelBtn.textContent = "Cancel";
+    const discardBtn = document.createElement("button");
+    discardBtn.className = "print-modal__switch";
+    discardBtn.textContent = "Don't Save";
+    const saveBtn = document.createElement("button");
+    saveBtn.className = "print-modal__print";
+    saveBtn.textContent = "Save";
+    actionsDiv.append(cancelBtn, discardBtn, saveBtn);
+    modal.append(titleDiv, msgDiv, actionsDiv);
+    overlay.append(modal);
+    document.body.append(overlay);
+    const done = (choice: "save" | "discard" | "cancel") => { overlay.remove(); resolve(choice); };
+    cancelBtn.addEventListener("click", () => done("cancel"));
+    discardBtn.addEventListener("click", () => done("discard"));
+    saveBtn.addEventListener("click", () => done("save"));
+  });
+}
+
 async function handleCloseTab(idx: number): Promise<void> {
   const entry = tabs.entries[idx];
   if (!entry) return;
   if (entry.isDirty) {
-    const discard = confirm(`Discard unsaved changes to "${basename(entry.absPath)}"?`);
-    if (!discard) return;
+    const choice = await promptDirtyClose(basename(entry.absPath || "Untitled"));
+    if (choice === "cancel") return;
+    if (choice === "save") {
+      if (idx === tabs.activeIdx) {
+        const saved = await files.saveInteractive(editor.getValue());
+        if (!saved) return;
+        // onAfterSave callback already clears isDirty on the active tab
+      } else if (entry.absPath) {
+        try {
+          await saveFileApi(entry.absPath, entry.content);
+          drafts.onExplicitSave(entry.absPath);
+          entry.isDirty = false;
+          rebindTabBar();
+        } catch {
+          showToast("Save failed");
+          return;
+        }
+      }
+      // Untitled non-active: no save path available, fall through to close
+    }
   }
   if (isTauri() && entry.absPath) {
     void invoke("remove_watch", { path: entry.absPath });
@@ -530,6 +582,7 @@ void (async () => {
         tabs.activateTab(saved.activeIdx);
       }
       if (tabs.active) {
+        files.setPath(tabs.active.absPath || null);
         editor.setValue(tabs.active.content);
         files.clearDirty();
         tabs.updateActive({ isDirty: false });
@@ -582,9 +635,13 @@ void (async () => {
     }
   } else {
     const content = await drafts.recoverDraft(draft.draft_key);
-    editor.setValue(content);
-    preview.update(content);
-    showToast(`Recovered unsaved changes to "${label}"`);
+    if (content === (tabs.active?.content ?? "")) {
+      await drafts.dismissDraft(draft.draft_key);
+    } else {
+      editor.setValue(content);
+      preview.update(content);
+      showToast(`Recovered unsaved changes to "${label}"`);
+    }
   }
   for (const d of recoverable) {
     if (d.draft_key !== draft.draft_key) await drafts.dismissDraft(d.draft_key);
@@ -599,7 +656,7 @@ if (isTauri()) {
     const win = getCurrentWindow();
     let closing = false;
     await win.onCloseRequested(async (event: { preventDefault(): void }) => {
-      if (!files.state.isDirty) return;
+      if (!files.state.isDirty && !tabs.entries.some(e => e.isDirty)) return;
       if (closing) { event.preventDefault(); return; }
       closing = true;
       event.preventDefault();
