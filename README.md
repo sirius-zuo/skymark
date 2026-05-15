@@ -43,11 +43,13 @@ See [Build from source](#build-from-source) below.
 ### Opening files
 
 - **Single file:** `Cmd/Ctrl + O` opens a file picker. Skymark supports `.md`, `.markdown`, and `.txt` files.
-- **Folder (Vault mode):** `Cmd/Ctrl + Shift + O` opens an entire folder as a vault. A file tree appears in the sidebar; all files are available as tabs.
+- Files open in new tabs; multiple files can be open at once.
 
 ### Editing
 
 The left pane is a full-featured code editor ([CodeMirror 6](https://codemirror.net)) with Markdown syntax highlighting. The preview on the right updates as you type (~50ms debounce).
+
+**Editor-preview sync** — clicking a line in the preview scrolls the editor to the corresponding line, and vice versa. This makes it easy to navigate between source and rendered output.
 
 Supported Markdown:
 - **CommonMark + GFM** — tables, strikethrough, task lists (`- [ ]`), fenced code blocks with language tags
@@ -55,15 +57,11 @@ Supported Markdown:
 - **Diagrams** — [Mermaid](https://mermaid.js.org) fenced blocks (` ```mermaid `)
 - **Syntax highlighting** in fenced code blocks (100+ languages via [highlight.js](https://highlightjs.org))
 
-### Vault mode
+### Sidebar
 
-Open a folder with `Cmd/Ctrl + Shift + O`. In vault mode:
+When you open a file, the sidebar shows a lazy-loaded directory tree of the file's parent folder. Click any file to open it. The sidebar scrolls automatically when the file list is longer than the window.
 
-- The **sidebar** shows all Markdown files in the folder tree. Click any file to open it.
-- **Fuzzy search** (`Cmd/Ctrl + P`) searches files by name and heading across the vault.
-- **Multi-tab editing** — open multiple files at once; tabs show dirty state and external-change indicators.
-- **Broken-link detection** — wiki-style links to missing files are highlighted in the sidebar.
-- The vault and open tabs are **restored on next launch**.
+Cross-folder opens switch the sidebar to the new file's folder automatically.
 
 ### Saving
 
@@ -76,7 +74,18 @@ Open a folder with `Cmd/Ctrl + Shift + O`. In vault mode:
 Click the **Export ▾** button in the titlebar:
 
 - **Export as HTML** — saves a standalone `.html` file with CDN-linked CSS for KaTeX and syntax highlighting. Math, diagrams, and code highlighting are baked in — no JavaScript required in the exported file.
-- **Print / Save as PDF** — triggers the OS print dialog. The editor and sidebar are hidden; only the document content prints.
+- **Print / Save as PDF** — triggers the OS print dialog. The editor and sidebar are hidden; only the document content prints at full width.
+
+### System menu
+
+Skymark augments the native OS menu with File and Edit items:
+
+- **File → New** (`Cmd/Ctrl + N`) — new document
+- **File → Open** (`Cmd/Ctrl + O`) — open file
+- **File → Close Window** (`Cmd/Ctrl + W`) — close current tab
+- **File → Save** (`Cmd/Ctrl + S`) — save file
+- **File → Print** (`Cmd/Ctrl + P`) — print / save as PDF
+- **Edit → Find** (`Cmd/Ctrl + F`) — find in editor
 
 ### Theme
 
@@ -93,12 +102,11 @@ Skymark checks for updates 3 seconds after launch. When a new version is availab
 | Shortcut | Action |
 |----------|--------|
 | `Cmd/Ctrl + O` | Open file |
-| `Cmd/Ctrl + Shift + O` | Open folder (vault mode) |
 | `Cmd/Ctrl + S` | Save file |
 | `Cmd/Ctrl + N` | New document |
 | `Cmd/Ctrl + W` | Close current tab |
-| `Cmd/Ctrl + P` | Fuzzy file / heading search (vault mode) |
-| `Cmd/Ctrl + \` | Toggle sidebar (vault mode) |
+| `Cmd/Ctrl + P` | Print / save as PDF |
+| `Cmd/Ctrl + \` | Toggle sidebar |
 | `Cmd/Ctrl + Z` | Undo |
 | `Cmd/Ctrl + Shift + Z` | Redo |
 | `Cmd/Ctrl + F` | Find in editor |
@@ -152,6 +160,6 @@ npm run build       # TypeScript type-check + Vite build
 
 Skymark is split into three layers:
 
-- **`skymark-core`** — pure Rust library. Converts Markdown to sanitized HTML using [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) and [ammonia](https://github.com/notriddle/ammonia). No Tauri dependency.
-- **`skymark-app`** — Tauri 2 backend. Exposes commands for rendering, file I/O, and export. Saves files atomically (write-temp-then-rename). Deny-by-default capability model.
-- **Frontend** — Vite + TypeScript. CodeMirror 6 editor, preview rendered via `DOMParser` + `replaceChildren` (never `innerHTML`).
+- **`skymark-core`** — pure Rust library. Converts Markdown to sanitized HTML using [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark) and [ammonia](https://github.com/notriddle/ammonia). No Tauri dependency. Injects `data-line` attributes on block elements for editor-preview sync.
+- **`skymark-app`** — Tauri 2 backend. Exposes commands for rendering, file I/O, export, and lazy directory listing. Saves files atomically (write-temp-then-rename). Deny-by-default capability model.
+- **Frontend** — Vite + TypeScript. CodeMirror 6 editor with format toolbar, preview rendered via `DOMParser` + `replaceChildren` (never `innerHTML`). Editor-preview sync follows cursor/scroll between panes.
