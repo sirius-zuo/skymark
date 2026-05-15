@@ -4,9 +4,7 @@
 
 # Skymark
 
-A fast, lightweight Markdown editor for the desktop. Built with Rust and Tauri 2.
-
-Two-pane layout: write Markdown on the left, see a live HTML preview on the right.
+Skymark is a fast, lightweight Markdown editor built with Rust and Tauri 2, featuring live preview, vault-based file management, and export-ready rendering for a modern desktop writing workflow. Write Markdown on the left, see a live HTML preview on the right.
 
 ---
 
@@ -59,8 +57,7 @@ Supported Markdown:
 
 ### Sidebar
 
-When you open a file, the sidebar shows a lazy-loaded directory tree of the file's parent folder. Click any file to open it. The sidebar scrolls automatically when the file list is longer than the window.
-
+When you open a file, the sidebar shows a lazy-loaded directory tree of the file's parent folder. 
 Cross-folder opens switch the sidebar to the new file's folder automatically.
 
 ### Saving
