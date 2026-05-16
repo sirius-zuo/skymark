@@ -3,9 +3,9 @@ use std::io::Write;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::OnceLock;
 
-use objc2::{class, msg_send, sel};
 use objc2::ffi::{class_addMethod, object_getClass};
 use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
+use objc2::{class, msg_send, sel};
 use tauri::Manager;
 
 type Id = *mut AnyObject;

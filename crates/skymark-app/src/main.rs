@@ -3,11 +3,11 @@
 mod commands;
 mod dir;
 mod draft;
+#[cfg(target_os = "macos")]
+mod macos_open;
 mod menu;
 mod storage;
 mod watcher;
-#[cfg(target_os = "macos")]
-mod macos_open;
 
 use tauri::{Emitter, Manager};
 
