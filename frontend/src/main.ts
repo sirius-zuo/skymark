@@ -211,7 +211,8 @@ async function openFileByPath(absPath: string): Promise<void> {
   reloadBanner.hidden = true;
   tabs.persist();
   rebindTabBar();
-  dirTree.setActive(absPath);
+  showSidebarAndTabs();
+  void dirTree.setRoot(dirOf(absPath), absPath);
   if (isTauri()) void invoke("add_watch", { path: absPath });
 }
 
