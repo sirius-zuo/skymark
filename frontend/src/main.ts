@@ -4,7 +4,7 @@ import { createPreview } from "./preview";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
-import { isTauri, openFile, saveFile as saveFileApi, printWindow } from "./api";
+import { isTauri, openFile, saveFile as saveFileApi, printWindow, takePendingOpen } from "./api";
 import { createDirTree } from "./dir-tree";
 import { createTabHandle } from "./tabs";
 import { invoke } from "@tauri-apps/api/core";
@@ -404,6 +404,14 @@ if (isTauri()) {
   });
 }
 
+// ---- File open via double-click / Open With --------------------------------
+
+if (isTauri()) {
+  void listen<string>("skymark://open-file", ({ payload }) => {
+    void openFileByPath(payload);
+  });
+}
+
 // ---- Menu events -----------------------------------------------------------
 
 if (isTauri()) {
@@ -638,6 +646,12 @@ void (async () => {
         }
       }
     }
+  }
+
+  // Phase 1.5: Open file passed via double-click or "Open With" on cold start
+  if (isTauri()) {
+    const pending = await takePendingOpen();
+    if (pending) await openFileByPath(pending);
   }
 
   // Phase 2: Recover drafts (only if they match current tab)

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/skymark-core", "crates/skymark-app"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/sirius-zuo/skymark"
@@ -20,6 +20,7 @@ tauri-plugin-dialog = "2"
 notify-debouncer-mini = "0.4"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+objc2 = "0.6"
 
 [profile.release]
 opt-level = "s"

@@ -6,11 +6,23 @@ mod draft;
 mod menu;
 mod storage;
 mod watcher;
+#[cfg(target_os = "macos")]
+mod macos_open;
 
 use tauri::{Emitter, Manager};
 
+struct PendingOpen(std::sync::Mutex<Option<String>>);
+
+#[tauri::command]
+fn take_pending_open(state: tauri::State<PendingOpen>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
+
 fn main() {
     tauri::Builder::default()
+        // Managed here (not in setup) so it's available before RunEvent::Opened fires,
+        // which on macOS can happen before the setup closure runs.
+        .manage(PendingOpen(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -35,6 +47,8 @@ fn main() {
             });
 
             menu::build_menu(app)?;
+            #[cfg(target_os = "macos")]
+            macos_open::install(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -50,7 +64,38 @@ fn main() {
             watcher::add_watch,
             watcher::remove_watch,
             watcher::clear_all,
+            take_pending_open,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Skymark");
+        .build(tauri::generate_context!())
+        .expect("error while building Skymark")
+        .run(|app_handle, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &event {
+                use std::io::Write as _;
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open("/tmp/skymark_ae.log")
+                {
+                    let _ = writeln!(
+                        f,
+                        "[pid={}] RunEvent::Opened: {} url(s)",
+                        std::process::id(),
+                        urls.len()
+                    );
+                }
+                for url in urls {
+                    if url.scheme() == "file" {
+                        if let Ok(path) = url.to_file_path() {
+                            let path_str = path.to_string_lossy().into_owned();
+                            if let Some(state) = app_handle.try_state::<PendingOpen>() {
+                                *state.0.lock().unwrap() = Some(path_str.clone());
+                            }
+                            let _ = app_handle.emit("skymark://open-file", path_str);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
 }

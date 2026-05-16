@@ -19,6 +19,9 @@ notify-debouncer-mini.workspace = true
 tauri-plugin-updater.workspace = true
 tauri-plugin-process.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+
 [[bin]]
 name = "skymark"
 path = "src/main.rs"
