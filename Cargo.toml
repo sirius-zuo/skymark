@@ -6,7 +6,7 @@ members = ["crates/skymark-core", "crates/skymark-app"]
 version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/jinzuo/skymark"
+repository = "https://github.com/sirius-zuo/skymark"
 
 [workspace.dependencies]
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
