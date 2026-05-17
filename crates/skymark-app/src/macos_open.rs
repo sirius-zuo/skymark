@@ -9,6 +9,7 @@ use objc2::{class, msg_send, sel};
 use tauri::Manager;
 
 type Id = *mut AnyObject;
+type Imp = unsafe extern "C-unwind" fn();
 
 const K_CORE_EVENT_CLASS: u32 = u32::from_be_bytes(*b"aevt");
 const K_AE_OPEN_DOCUMENTS: u32 = u32::from_be_bytes(*b"odoc");
@@ -76,7 +77,7 @@ unsafe fn setup_handlers() {
     class_addMethod(
         new_cls,
         sel!(skymarkHandleOpenDocument:withReplyEvent:),
-        std::mem::transmute(ae_fn),
+        std::mem::transmute::<unsafe extern "C-unwind" fn(Id, Sel, Id, Id), Imp>(ae_fn),
         c"v@:@@".as_ptr() as *const c_char,
     );
 
@@ -124,7 +125,7 @@ unsafe fn inject_open_file_delegate() {
     let r = class_addMethod(
         cls,
         sel!(application:openFile:),
-        std::mem::transmute(file_fn),
+        std::mem::transmute::<unsafe extern "C-unwind" fn(Id, Sel, Id, Id) -> Bool, Imp>(file_fn),
         c"B@:@@".as_ptr() as *const c_char,
     );
     log(&format!(
