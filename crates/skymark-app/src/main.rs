@@ -68,9 +68,9 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building Skymark")
-        .run(|app_handle, event| {
+        .run(|_app_handle, _event| {
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Opened { urls } = &event {
+            if let tauri::RunEvent::Opened { urls } = &_event {
                 use std::io::Write as _;
                 if let Ok(mut f) = std::fs::OpenOptions::new()
                     .create(true)
@@ -88,10 +88,10 @@ fn main() {
                     if url.scheme() == "file" {
                         if let Ok(path) = url.to_file_path() {
                             let path_str = path.to_string_lossy().into_owned();
-                            if let Some(state) = app_handle.try_state::<PendingOpen>() {
+                            if let Some(state) = _app_handle.try_state::<PendingOpen>() {
                                 *state.0.lock().unwrap() = Some(path_str.clone());
                             }
-                            let _ = app_handle.emit("skymark://open-file", path_str);
+                            let _ = _app_handle.emit("skymark://open-file", path_str);
                             break;
                         }
                     }
