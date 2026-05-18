@@ -159,7 +159,8 @@ body {
 .pane { min-height: 0; display: flex; flex-direction: column; }
 
 .editor-pane { border-right: var(--pane-divider); background: var(--color-surface); overflow: hidden; }
-.editor-pane .cm-editor { flex: 1; height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
+#editor-content { flex: 1; min-height: 0; overflow: hidden; }
+.editor-pane .cm-editor { height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
 .editor-pane .cm-scroller { padding: var(--space-5) var(--space-6) var(--space-5) 0; }
 
 .preview-pane { background: var(--color-surface); overflow: auto; padding: var(--space-5) var(--space-6); }

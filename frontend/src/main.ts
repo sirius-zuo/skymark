@@ -18,7 +18,7 @@ import { createToolbar } from "./toolbar";
 
 // ---- DOM elements ----------------------------------------------------------
 
-const editorHost = document.getElementById("editor");
+const editorHost = document.getElementById("editor-content");
 const previewHost = document.getElementById("preview");
 const sidebarEl = document.getElementById("sidebar") as HTMLElement | null;
 const titleEl = document.getElementById("doc-title") as HTMLElement | null;
