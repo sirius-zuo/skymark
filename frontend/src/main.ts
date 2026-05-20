@@ -84,6 +84,7 @@ const editor = createEditor(
 );
 
 onThemeChange(() => { preview.update(editor.getValue()); });
+window.addEventListener("resize", () => { preview.update(editor.getValue()); });
 
 const toolbarEl = document.getElementById("format-toolbar");
 if (toolbarEl) {
