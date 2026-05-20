@@ -10,9 +10,13 @@ export interface PreviewHandle {
 }
 
 export function createPreview(host: HTMLElement): PreviewHandle {
+  const scroller = document.createElement("div");
+  scroller.className = "preview-scroll";
+  host.appendChild(scroller);
+
   const content = document.createElement("div");
   content.className = "preview-content";
-  host.appendChild(content);
+  scroller.appendChild(content);
 
   const parser = new DOMParser();
   let timer: number | null = null;
@@ -77,7 +81,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
         target.scrollIntoView({ block: "nearest", behavior: "instant" });
       } else {
         // All block markers are after the cursor line — scroll preview to top.
-        host.scrollTop = 0;
+        scroller.scrollTop = 0;
       }
     },
   };

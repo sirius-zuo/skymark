@@ -76,7 +76,8 @@ body {
   .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
   #toast-root { display: none !important; }
   .panes { display: block !important; grid-template-columns: 1fr !important; width: 100% !important; }
-  .preview-pane { width: 100% !important; border: none; padding: 0; }
+  .preview-pane { width: 100% !important; border: none; }
+  .preview-scroll { overflow: visible !important; height: auto !important; padding: 0; }
   .preview-content { max-width: none !important; }
 
   body.print-source .panes { display: none !important; }
@@ -163,7 +164,8 @@ body {
 .editor-pane .cm-editor { height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
 .editor-pane .cm-scroller { padding: var(--space-5) var(--space-6) var(--space-5) 0; }
 
-.preview-pane { background: var(--color-surface); overflow-y: auto; overflow-x: hidden; padding: var(--space-5) var(--space-6); }
+.preview-pane { background: var(--color-surface); overflow: hidden; }
+.preview-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; padding: var(--space-5) var(--space-6); }
 .preview-pane .preview-content {
   max-width: var(--content-max-width);
   margin: 0 auto;
