@@ -4,7 +4,7 @@
 
 # Skymark
 
-Skymark is a fast, lightweight Markdown editor built with Rust and Tauri 2, featuring live preview, vault-based file management, and export-ready rendering for a modern desktop writing workflow. Write Markdown on the left, see a live HTML preview on the right.
+Skymark is a fast, lightweight Markdown editor built with Rust and Tauri 2. Write in the left pane, see a live HTML preview on the right. Supports CommonMark, GitHub Flavored Markdown, math via KaTeX, Mermaid diagrams, and syntax highlighting in 100+ languages. Features multi-tab editing, a sidebar file tree, draft auto-save, HTML export, and print-to-PDF. Available for macOS (universal), Linux, and Windows with auto-update. Built on CodeMirror 6 with bidirectional editor-preview scroll sync.
 
 ---
 
