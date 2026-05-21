@@ -67,11 +67,67 @@ fn cache_key(input: &str) -> String {
     format!("{:016x}", fnv1a_hash(input))
 }
 
+/// Convert heading text to a GitHub-style slug for use as an HTML id.
+fn slugify(text: &str) -> String {
+    let mut slug = String::new();
+    for c in text.to_lowercase().chars() {
+        if c.is_alphanumeric() {
+            slug.push(c);
+        } else if c == ' ' || c == '-' {
+            if !slug.ends_with('-') {
+                slug.push('-');
+            }
+        }
+    }
+    slug.trim_end_matches('-').to_string()
+}
+
+/// Pre-pass: collect a slug for every heading in document order.
+/// Duplicate slugs get a numeric suffix (-1, -2, …) matching GitHub's behaviour.
+fn collect_heading_slugs(markdown: &str) -> Vec<String> {
+    use std::collections::HashMap;
+    use pulldown_cmark::TagEnd;
+
+    let parser = Parser::new_ext(markdown, gfm_options());
+    let mut slugs: Vec<String> = Vec::new();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    let mut in_heading = false;
+    let mut text_buf = String::new();
+
+    for event in parser {
+        match event {
+            Event::Start(Tag::Heading { .. }) => {
+                in_heading = true;
+                text_buf.clear();
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                if in_heading {
+                    let base = slugify(&text_buf);
+                    let count = counts.entry(base.clone()).or_insert(0);
+                    let slug = if *count == 0 {
+                        base.clone()
+                    } else {
+                        format!("{base}-{count}")
+                    };
+                    *count += 1;
+                    slugs.push(slug);
+                    in_heading = false;
+                }
+            }
+            Event::Text(t) if in_heading => text_buf.push_str(&t),
+            Event::Code(t) if in_heading => text_buf.push_str(&t),
+            _ => {}
+        }
+    }
+    slugs
+}
+
 /// Convert a Markdown source string to a sanitized HTML fragment.
 ///
 /// Pipeline: pulldown-cmark (CommonMark + GFM extensions) -> HTML buffer -> sanitizer.
 /// Block-level open tags carry a `data-line="N"` attribute (1-based source line)
-/// for editor-preview scroll sync.
+/// for editor-preview scroll sync. Heading tags additionally carry an `id` attribute
+/// (GitHub-style slug) so that `#anchor` links navigate correctly.
 ///
 /// Results are cached by content hash to skip re-parsing unchanged content.
 pub fn render_html(markdown: &str) -> Result<String, RenderError> {
@@ -94,13 +150,21 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
     let line_starts: Vec<usize> = std::iter::once(0)
         .chain(markdown.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
+    let heading_slugs = collect_heading_slugs(markdown);
+    let mut heading_idx = 0;
     let mut html_buf = String::new();
     let parser = Parser::new_ext(markdown, gfm_options());
     for (event, range) in parser.into_offset_iter() {
         if let Event::Start(ref tag) = event {
             if is_block_tag(tag) {
                 let line = byte_to_line(range.start, &line_starts);
-                html_buf.push_str(&block_open_tag(tag, line));
+                if matches!(tag, Tag::Heading { .. }) {
+                    let slug = heading_slugs.get(heading_idx).map(String::as_str).unwrap_or("");
+                    heading_idx += 1;
+                    html_buf.push_str(&heading_open_tag(tag, line, slug));
+                } else {
+                    html_buf.push_str(&block_open_tag(tag, line));
+                }
                 continue;
             }
         }
@@ -142,12 +206,18 @@ fn is_block_tag(tag: &Tag) -> bool {
     )
 }
 
+fn heading_open_tag(tag: &Tag, line: usize, id: &str) -> String {
+    let Tag::Heading { level, .. } = tag else { unreachable!() };
+    if id.is_empty() {
+        format!("<h{} data-line=\"{line}\">", *level as u8)
+    } else {
+        format!("<h{} id=\"{id}\" data-line=\"{line}\">", *level as u8)
+    }
+}
+
 fn block_open_tag(tag: &Tag, line: usize) -> String {
     match tag {
         Tag::Paragraph => format!("<p data-line=\"{line}\">"),
-        Tag::Heading { level, .. } => {
-            format!("<h{} data-line=\"{line}\">", *level as u8)
-        }
         Tag::CodeBlock(CodeBlockKind::Indented) => {
             format!("<pre data-line=\"{line}\"><code>")
         }

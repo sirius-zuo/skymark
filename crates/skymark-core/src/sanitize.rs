@@ -70,7 +70,7 @@ fn builder() -> Builder<'static> {
     tag_attrs.insert("ol", ["start"].into_iter().collect());
     b.tag_attributes(tag_attrs);
 
-    let generic_attrs: HashSet<&'static str> = ["data-line"].into_iter().collect();
+    let generic_attrs: HashSet<&'static str> = ["data-line", "id"].into_iter().collect();
     b.generic_attributes(generic_attrs);
 
     let url_schemes: HashSet<&'static str> = ["http", "https", "mailto"].into_iter().collect();
