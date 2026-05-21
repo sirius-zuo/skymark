@@ -92,23 +92,32 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       );
       if (markers.length === 0) return;
 
-      // Find the last marker whose data-line value is <= the requested line.
-      // Markers are in DOM order which matches ascending data-line order.
-      let target: HTMLElement | null = null;
+      // Find the two bracketing markers: A (last data-line <= line) and B (first after).
+      let markerA: HTMLElement | null = null;
+      let lineA = 0;
+      let markerB: HTMLElement | null = null;
+      let lineB = 0;
       for (const el of markers) {
         const n = parseInt(el.getAttribute("data-line") ?? "0", 10);
-        if (n <= line) target = el;
-        else break;
+        if (n <= line) { markerA = el; lineA = n; }
+        else { markerB = el; lineB = n; break; }
       }
 
-      if (target) {
-        // Scroll the target to the top of the preview, mirroring the editor's
-        // { y: "start" } behaviour so both panes stay in sync.
-        scroller.scrollTop += target.getBoundingClientRect().top -
-                               scroller.getBoundingClientRect().top;
-      } else {
-        scroller.scrollTop = 0;
+      if (!markerA) { scroller.scrollTop = 0; return; }
+
+      // Compute how far (in pixels) each marker is from the scroller top right now.
+      // Adding scroller.scrollTop converts viewport-relative to content-absolute.
+      const scrollerTop = scroller.getBoundingClientRect().top;
+      const aOff = markerA.getBoundingClientRect().top - scrollerTop;
+
+      if (!markerB || lineB <= lineA) {
+        scroller.scrollTop += aOff;
+        return;
       }
+
+      const bOff = markerB.getBoundingClientRect().top - scrollerTop;
+      const fraction = (line - lineA) / (lineB - lineA);
+      scroller.scrollTop += aOff + fraction * (bOff - aOff);
     },
     onScroll(listener: (line: number) => void): void {
       scrollListeners.push(listener);
