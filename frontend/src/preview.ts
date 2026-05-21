@@ -22,11 +22,15 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   const parser = new DOMParser();
   let timer: number | null = null;
   let inflight = 0;
-  let muteUntil = 0;
+  // muteCallbackUntil: set by scrollToLine so programmatic scrolls don't echo back.
+  // muteScrollToLineUntil: set by user scroll so the sync extension can't fight it.
+  let muteCallbackUntil = 0;
+  let muteScrollToLineUntil = 0;
   const scrollListeners: Array<(line: number) => void> = [];
 
   scroller.addEventListener("scroll", () => {
-    if (Date.now() < muteUntil) return;
+    if (Date.now() < muteCallbackUntil) return;
+    muteScrollToLineUntil = Date.now() + 200;
     const scrollerRect = scroller.getBoundingClientRect();
     const markers = Array.from(content.querySelectorAll<HTMLElement>("[data-line]"));
     let line = 1;
@@ -81,7 +85,8 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       return content;
     },
     scrollToLine(line: number): void {
-      muteUntil = Date.now() + 200;
+      if (Date.now() < muteScrollToLineUntil) return;
+      muteCallbackUntil = Date.now() + 200;
       const markers = Array.from(
         content.querySelectorAll<HTMLElement>("[data-line]")
       );
