@@ -7,6 +7,7 @@ export interface PreviewHandle {
   update(text: string): void;
   getContentEl(): HTMLElement;
   scrollToLine(line: number): void;
+  onScroll(listener: (line: number) => void): void;
 }
 
 export function createPreview(host: HTMLElement): PreviewHandle {
@@ -21,6 +22,23 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   const parser = new DOMParser();
   let timer: number | null = null;
   let inflight = 0;
+  let muteUntil = 0;
+  const scrollListeners: Array<(line: number) => void> = [];
+
+  scroller.addEventListener("scroll", () => {
+    if (Date.now() < muteUntil) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const markers = Array.from(content.querySelectorAll<HTMLElement>("[data-line]"));
+    let line = 1;
+    for (const el of markers) {
+      if (el.getBoundingClientRect().top - scrollerRect.top <= 2) {
+        line = parseInt(el.getAttribute("data-line") ?? "1", 10);
+      } else {
+        break;
+      }
+    }
+    for (const l of scrollListeners) l(line);
+  }, { passive: true });
 
   async function commitDom(htmlString: string): Promise<void> {
     // The HTML from skymark-core is already sanitized (spec §5.1).
@@ -63,6 +81,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       return content;
     },
     scrollToLine(line: number): void {
+      muteUntil = Date.now() + 200;
       const markers = Array.from(
         content.querySelectorAll<HTMLElement>("[data-line]")
       );
@@ -83,6 +102,9 @@ export function createPreview(host: HTMLElement): PreviewHandle {
         // All block markers are after the cursor line — scroll preview to top.
         scroller.scrollTop = 0;
       }
+    },
+    onScroll(listener: (line: number) => void): void {
+      scrollListeners.push(listener);
     },
   };
 }

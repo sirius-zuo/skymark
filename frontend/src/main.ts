@@ -83,6 +83,8 @@ const editor = createEditor(
   [syncExt]
 );
 
+preview.onScroll((line) => { editor.scrollViewportToLine(line); });
+
 onThemeChange(() => { preview.update(editor.getValue()); });
 window.addEventListener("resize", () => { preview.update(editor.getValue()); });
 

@@ -39,6 +39,7 @@ export interface EditorHandle {
   getValue(): string;
   setValue(text: string): void;
   scrollToLine(line: number): void;
+  scrollViewportToLine(line: number): void;
 }
 
 export type DocChangeListener = (text: string) => void;
@@ -237,6 +238,11 @@ export function createEditor(
       const doc = view.state.doc;
       const target = doc.line(Math.min(line + 1, doc.lines));
       view.dispatch({ selection: { anchor: target.from }, scrollIntoView: true });
+    },
+    scrollViewportToLine(line: number) {
+      const doc = view.state.doc;
+      const pos = doc.line(Math.min(Math.max(1, line), doc.lines)).from;
+      view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start" }) });
     },
   };
 }
