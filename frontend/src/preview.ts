@@ -102,9 +102,11 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       }
 
       if (target) {
-        target.scrollIntoView({ block: "nearest", behavior: "instant" });
+        // Scroll the target to the top of the preview, mirroring the editor's
+        // { y: "start" } behaviour so both panes stay in sync.
+        scroller.scrollTop += target.getBoundingClientRect().top -
+                               scroller.getBoundingClientRect().top;
       } else {
-        // All block markers are after the cursor line — scroll preview to top.
         scroller.scrollTop = 0;
       }
     },
