@@ -743,6 +743,16 @@ if (isTauri()) {
         }
       }
 
+      // Handle the startup/post-close Untitled document (has no tab entry)
+      if (tabs.entries.length === 0 && files.state.isDirty) {
+        const choice = await promptDirtyClose("Untitled");
+        if (choice === "cancel") { closing = false; return; }
+        if (choice === "save") {
+          const saved = await files.saveInteractive(editor.getValue());
+          if (!saved) { closing = false; return; }
+        }
+      }
+
       tabs.persist();
       await win.destroy();
     });
