@@ -153,7 +153,7 @@ npm run build       # TypeScript type-check + Vite build
 
 ---
 
-## Architecture
+## Architecture Overview
 
 Skymark is split into three layers:
 
