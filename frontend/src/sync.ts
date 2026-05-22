@@ -2,39 +2,74 @@ import { EditorView } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import type { PreviewHandle } from "./preview";
 
-/**
- * Returns a CodeMirror Extension that drives preview scroll from editor
- * viewport changes (immediate) and cursor moves (100ms debounce).
- * Pass the returned extension into createEditor's `extra` parameter.
- */
 export function createSyncExtension(preview: PreviewHandle): Extension {
   let cursorTimer: number | null = null;
 
   return EditorView.updateListener.of((update) => {
     if (update.viewportChanged) {
-      // viewport.from is the start of CodeMirror's pre-render buffer, which sits
-      // above the actual visible area. Use posAtCoords on the top edge of the
-      // editor DOM to get the truly first-visible character instead.
-      const rect = update.view.scrollDOM.getBoundingClientRect();
-      const pos = update.view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 });
-      if (pos === null) return;
-      const line = update.view.state.doc.lineAt(pos).number;
-      preview.scrollToLine(line);
-      // Cancel any pending cursor sync; viewport change takes priority.
-      if (cursorTimer !== null) {
-        window.clearTimeout(cursorTimer);
-        cursorTimer = null;
+      const view = update.view;
+      const dataLines = preview.getDataLineNumbers();
+      if (dataLines.length === 0) return;
+
+      const rect = view.scrollDOM.getBoundingClientRect();
+
+      // Returns the anchor's y-position relative to the top of the editor's
+      // visible area. Negative = above viewport top, 0 = at top, positive = below.
+      // coordsAtPos is accurate but returns null for positions outside the CM
+      // render buffer. lineBlockAt covers that case with a small approximation.
+      function anchorViewY(dl: number): number {
+        const n = Math.min(dl, view.state.doc.lines);
+        const pos = view.state.doc.line(n).from;
+        const coords = view.coordsAtPos(pos);
+        if (coords !== null) return coords.top - rect.top;
+        return view.lineBlockAt(pos).top - view.scrollDOM.scrollTop;
       }
+
+      // Find the two anchors that bracket the top of the visible area.
+      let lineA = dataLines[0];
+      let viewYA = anchorViewY(dataLines[0]);
+      let lineB: number | null = null;
+      let viewYB = 0;
+
+      for (let i = 1; i < dataLines.length; i++) {
+        const vy = anchorViewY(dataLines[i]);
+        if (vy <= 0) {
+          lineA = dataLines[i];
+          viewYA = vy;
+        } else {
+          lineB = dataLines[i];
+          viewYB = vy;
+          break;
+        }
+      }
+
+      if (lineB !== null && viewYB > viewYA) {
+        // Normal case: viewport top sits between anchors A and B.
+        const fraction = Math.max(0, Math.min(1, -viewYA / (viewYB - viewYA)));
+        preview.scrollBetween(lineA, lineB, fraction);
+      } else if (lineB === null && viewYA <= 0) {
+        // Past the last anchor: interpolate to the end of the preview.
+        // fraction = how far past lineA the viewport top is, out of all
+        // remaining editor content below lineA.
+        const scrollEl = view.scrollDOM;
+        const remaining = scrollEl.scrollHeight - scrollEl.scrollTop;
+        const fraction = Math.max(0, Math.min(1, -viewYA / (remaining - viewYA)));
+        preview.scrollPastAnchor(lineA, fraction);
+      } else {
+        // Viewport is before the first anchor or degenerate — snap to lineA.
+        preview.scrollBetween(lineA, lineB ?? lineA, 0);
+      }
+
+      if (cursorTimer !== null) { window.clearTimeout(cursorTimer); cursorTimer = null; }
       return;
     }
 
     if (update.selectionSet && !update.docChanged) {
-      // Cursor sync: debounce 100ms to avoid firing on every keystroke.
       if (cursorTimer !== null) window.clearTimeout(cursorTimer);
       cursorTimer = window.setTimeout(() => {
         cursorTimer = null;
         const line = update.view.state.doc.lineAt(
-          update.view.state.selection.main.head
+          update.view.state.selection.main.head,
         ).number;
         preview.scrollToLine(line);
       }, 100);

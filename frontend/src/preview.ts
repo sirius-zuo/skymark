@@ -6,7 +6,21 @@ import { enrichMermaid } from "./enrich-mermaid";
 export interface PreviewHandle {
   update(text: string): void;
   getContentEl(): HTMLElement;
+  /** Returns source line numbers of every data-line block marker, in order. */
+  getDataLineNumbers(): number[];
+  /**
+   * Scroll sync from editor: scroll so that `fraction` of the way between the
+   * preview elements for `lineA` and `lineB` is at the top of the pane.
+   */
+  scrollBetween(lineA: number, lineB: number, fraction: number): void;
+  /**
+   * Scroll sync past the last anchor: scroll `fraction` of the remaining
+   * preview content below `lineA` into view (fraction=1 → preview bottom).
+   */
+  scrollPastAnchor(lineA: number, fraction: number): void;
+  /** Cursor sync: scroll to the block containing source line `line`. */
   scrollToLine(line: number): void;
+  /** Fires with the topmost visible source line when the user scrolls the preview. */
   onScroll(listener: (line: number) => void): void;
 }
 
@@ -22,15 +36,25 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   const parser = new DOMParser();
   let timer: number | null = null;
   let inflight = 0;
-  // muteCallbackUntil: set by scrollToLine so programmatic scrolls don't echo back.
-  // muteScrollToLineUntil: set by user scroll so the sync extension can't fight it.
-  let muteCallbackUntil = 0;
-  let muteScrollToLineUntil = 0;
+
+  // True while we are changing scroller.scrollTop programmatically — suppresses
+  // the scroll event so it doesn't echo back to the editor.
+  let syncingFromEditor = false;
+  // Deadline until which scrollBetween/scrollToLine are suppressed because the
+  // user is actively scrolling the preview pane.
+  let previewDrivingUntil = 0;
+
   const scrollListeners: Array<(line: number) => void> = [];
 
+  function doScroll(newScrollTop: number): void {
+    syncingFromEditor = true;
+    scroller.scrollTop = Math.max(0, newScrollTop);
+    requestAnimationFrame(() => { syncingFromEditor = false; });
+  }
+
   scroller.addEventListener("scroll", () => {
-    if (Date.now() < muteCallbackUntil) return;
-    muteScrollToLineUntil = Date.now() + 200;
+    if (syncingFromEditor) return;
+    previewDrivingUntil = Date.now() + 100;
     const scrollerRect = scroller.getBoundingClientRect();
     const markers = Array.from(content.querySelectorAll<HTMLElement>("[data-line]"));
     let line = 1;
@@ -45,9 +69,6 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   }, { passive: true });
 
   async function commitDom(htmlString: string): Promise<void> {
-    // The HTML from skymark-core is already sanitized (spec §5.1).
-    // We parse into a detached document — DOMParser does not execute <script>
-    // tags — then move nodes into the live preview via replaceChildren.
     const doc = parser.parseFromString(htmlString, "text/html");
     const adopted: Node[] = [];
     for (const node of Array.from(doc.body.childNodes)) {
@@ -62,13 +83,16 @@ export function createPreview(host: HTMLElement): PreviewHandle {
   async function commit(text: string, requestId: number): Promise<void> {
     try {
       const html = await renderMarkdown(text);
-      // Drop stale results — only the most recent invoke commits.
       if (requestId !== inflight) return;
       await commitDom(html);
     } catch (err) {
       console.error("[skymark] render failed", err);
       content.replaceChildren(document.createTextNode("Render failed: " + String(err)));
     }
+  }
+
+  function markerOffset(el: HTMLElement): number {
+    return el.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
   }
 
   return {
@@ -81,18 +105,41 @@ export function createPreview(host: HTMLElement): PreviewHandle {
         void commit(text, id);
       }, 50);
     },
+
     getContentEl(): HTMLElement {
       return content;
     },
-    scrollToLine(line: number): void {
-      if (Date.now() < muteScrollToLineUntil) return;
-      muteCallbackUntil = Date.now() + 200;
-      const markers = Array.from(
-        content.querySelectorAll<HTMLElement>("[data-line]")
-      );
-      if (markers.length === 0) return;
 
-      // Find the two bracketing markers: A (last data-line <= line) and B (first after).
+    getDataLineNumbers(): number[] {
+      return Array.from(content.querySelectorAll<HTMLElement>("[data-line]"))
+        .map(el => parseInt(el.getAttribute("data-line") ?? "0", 10))
+        .filter(n => n > 0);
+    },
+
+    scrollBetween(lineA: number, lineB: number, fraction: number): void {
+      if (Date.now() < previewDrivingUntil) return;
+      const elA = content.querySelector<HTMLElement>(`[data-line="${lineA}"]`);
+      if (!elA) return;
+      const aOff = markerOffset(elA);
+      const elB = content.querySelector<HTMLElement>(`[data-line="${lineB}"]`);
+      if (!elB) { doScroll(scroller.scrollTop + aOff); return; }
+      const bOff = markerOffset(elB);
+      doScroll(scroller.scrollTop + aOff + fraction * (bOff - aOff));
+    },
+
+    scrollPastAnchor(lineA: number, fraction: number): void {
+      if (Date.now() < previewDrivingUntil) return;
+      const elA = content.querySelector<HTMLElement>(`[data-line="${lineA}"]`);
+      if (!elA) return;
+      const elADocY = scroller.scrollTop + markerOffset(elA);
+      const totalRemaining = scroller.scrollHeight - elADocY;
+      doScroll(elADocY + fraction * totalRemaining);
+    },
+
+    scrollToLine(line: number): void {
+      if (Date.now() < previewDrivingUntil) return;
+      const markers = Array.from(content.querySelectorAll<HTMLElement>("[data-line]"));
+      if (markers.length === 0) return;
       let markerA: HTMLElement | null = null;
       let lineA = 0;
       let markerB: HTMLElement | null = null;
@@ -102,23 +149,14 @@ export function createPreview(host: HTMLElement): PreviewHandle {
         if (n <= line) { markerA = el; lineA = n; }
         else { markerB = el; lineB = n; break; }
       }
-
-      if (!markerA) { scroller.scrollTop = 0; return; }
-
-      // Compute how far (in pixels) each marker is from the scroller top right now.
-      // Adding scroller.scrollTop converts viewport-relative to content-absolute.
-      const scrollerTop = scroller.getBoundingClientRect().top;
-      const aOff = markerA.getBoundingClientRect().top - scrollerTop;
-
-      if (!markerB || lineB <= lineA) {
-        scroller.scrollTop += aOff;
-        return;
-      }
-
-      const bOff = markerB.getBoundingClientRect().top - scrollerTop;
+      if (!markerA) { doScroll(0); return; }
+      const aOff = markerOffset(markerA);
+      if (!markerB || lineB <= lineA) { doScroll(scroller.scrollTop + aOff); return; }
+      const bOff = markerOffset(markerB);
       const fraction = (line - lineA) / (lineB - lineA);
-      scroller.scrollTop += aOff + fraction * (bOff - aOff);
+      doScroll(scroller.scrollTop + aOff + fraction * (bOff - aOff));
     },
+
     onScroll(listener: (line: number) => void): void {
       scrollListeners.push(listener);
     },

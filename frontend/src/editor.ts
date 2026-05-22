@@ -39,7 +39,7 @@ export interface EditorHandle {
   getValue(): string;
   setValue(text: string): void;
   scrollToLine(line: number): void;
-  scrollViewportToLine(line: number): void;
+  scrollToSourceLine(line: number): void;
 }
 
 export type DocChangeListener = (text: string) => void;
@@ -239,10 +239,14 @@ export function createEditor(
       const target = doc.line(Math.min(line + 1, doc.lines));
       view.dispatch({ selection: { anchor: target.from }, scrollIntoView: true });
     },
-    scrollViewportToLine(line: number) {
+    scrollToSourceLine(line: number) {
       const doc = view.state.doc;
-      const pos = doc.line(Math.min(Math.max(1, line), doc.lines)).from;
-      view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start" }) });
+      const clampedLine = Math.min(Math.max(1, line), doc.lines);
+      const pos = doc.line(clampedLine).from;
+      // Set scrollTop directly from the line block's pixel position so we don't
+      // move the cursor and don't trigger an extra viewportChanged dispatch.
+      const block = view.lineBlockAt(pos);
+      view.scrollDOM.scrollTop = block.top + view.documentPadding.top;
     },
   };
 }
