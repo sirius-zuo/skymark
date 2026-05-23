@@ -2,7 +2,9 @@ import { EditorState, EditorSelection, RangeSetBuilder, type Extension } from "@
 import { EditorView, keymap, lineNumbers, ViewPlugin, DecorationSet, Decoration, ViewUpdate } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import { syntaxHighlighting } from "@codemirror/language";
+import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
+import { codeblockHighlight } from "./codeblock-highlight";
 import { searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { continueList, isUrl } from "./smart_edit";
@@ -185,7 +187,8 @@ export function createEditor(
           ...searchKeymap,
         ]),
         markdown(),
-        syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(oneDarkHighlightStyle, { fallback: true }),
+        codeblockHighlight,
         mathPlugin,
         EditorView.lineWrapping,
         EditorView.domEventHandlers({
