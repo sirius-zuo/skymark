@@ -1,6 +1,5 @@
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
-import hljs from "highlight.js";
 
 // Regex: matches ```lang ... ``` fences
 // Groups: [0]=full match, [1]=language tag, [2]=code content
@@ -62,7 +61,10 @@ function parseHighlightHTML(
   return results;
 }
 
-function highlightBlock(block: CodeBlockInfo): Array<{ from: number; to: number; classes: string[] }> {
+function highlightBlock(
+  hljs: typeof import("highlight.js").default,
+  block: CodeBlockInfo
+): Array<{ from: number; to: number; classes: string[] }> {
   const results: Array<{ from: number; to: number; classes: string[] }> = [];
   try {
     const result = block.lang
@@ -79,13 +81,16 @@ function highlightBlock(block: CodeBlockInfo): Array<{ from: number; to: number;
   return results;
 }
 
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(
+  view: EditorView,
+  hljs: typeof import("highlight.js").default
+): DecorationSet {
   const doc = view.state.doc.toString();
   const builder = new RangeSetBuilder<Decoration>();
   const blocks = findCodeBlocks(doc);
 
   for (const block of blocks) {
-    const spans = highlightBlock(block);
+    const spans = highlightBlock(hljs, block);
     for (const span of spans) {
       if (span.classes.length > 0) {
         builder.add(span.from, span.to, Decoration.mark({ class: span.classes.join(" ") }));
@@ -96,17 +101,49 @@ function buildDecorations(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
+// Lazy-load highlight.js (dynamic import avoids Vite tree-shaking of languages)
+let hljsCache: typeof import("highlight.js").default | null = null;
+let hljsLoading: Promise<typeof import("highlight.js").default> | null = null;
+
+function getHljs(): Promise<typeof import("highlight.js").default> {
+  if (hljsCache) return Promise.resolve(hljsCache);
+  if (!hljsLoading) {
+    hljsLoading = import("highlight.js").then((m) => {
+      hljsCache = m.default;
+      return hljsCache;
+    });
+  }
+  return hljsLoading;
+}
+
 export const codeblockHighlight = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
+    dirty: boolean;
 
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view);
+    constructor(_view: EditorView) {
+      // Build with no-hljs fallback (empty decorations) on first render
+      this.decorations = Decoration.none;
+      this.dirty = false;
     }
 
     update(update: ViewUpdate): void {
       if (update.docChanged) {
-        this.decorations = buildDecorations(update.view);
+        this.dirty = true;
+        // Queue async rebuild via microtask so it runs before next rAF
+        // Then dispatch a no-op update to force CodeMirror to re-render
+        queueMicrotask(() => {
+          if (!this.dirty) return;
+          this.dirty = false;
+          // Ensure hljs is loaded, then rebuild
+          getHljs().then((hljs) => {
+            this.decorations = buildDecorations(update.view, hljs);
+            // Dispatch empty update to trigger re-render with new decorations
+            update.view.dispatch({});
+          }).catch(() => {
+            // If hljs fails to load, keep empty decorations
+          });
+        });
       }
     }
   },
@@ -115,4 +152,4 @@ export const codeblockHighlight = ViewPlugin.fromClass(
   }
 );
 
-export { findCodeBlocks, highlightBlock };
+export { findCodeBlocks, highlightBlock, buildDecorations };
