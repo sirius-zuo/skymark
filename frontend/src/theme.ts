@@ -8,12 +8,14 @@ export function initTheme(): void {
   const theme: Theme =
     saved ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.hljsTheme = theme;
   syncButton();
 }
 
 export function toggleTheme(): void {
   const next: Theme = getTheme() === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
+  document.documentElement.dataset.hljsTheme = next;
   localStorage.setItem("skymark:theme", next);
   syncButton();
   for (const cb of callbacks) cb(next);
