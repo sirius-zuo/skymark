@@ -27,6 +27,22 @@ function findCodeBlocks(content: string): CodeBlockInfo[] {
   return blocks;
 }
 
+// Decode common HTML entities that highlight.js uses in its output.
+// highlight.js encodes: ' → &#x27;, / → &#x2F;, > → &gt;, < → &lt;, & → &amp;, " → &quot;
+function decodeHTMLEntities(text: string): string {
+  return (
+    text
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, "/")
+      .replace(/&#39;/g, "'")
+      .replace(/&#47;/g, "/")
+  );
+}
+
 function parseHighlightHTML(
   html: string,
   baseOffset: number
@@ -46,15 +62,17 @@ function parseHighlightHTML(
     } else if (part.startsWith("</span>")) {
       currentClasses = [];
     } else if (part) {
-      // Text content
-      if (part && currentClasses.length > 0) {
+      // Decode HTML entities so positions match the original document text.
+      // highlight.js encodes ' as &#x27;, > as &gt;, etc.
+      const decoded = decodeHTMLEntities(part);
+      if (decoded && currentClasses.length > 0) {
         results.push({
           from: baseOffset + pos,
-          to: baseOffset + pos + part.length,
+          to: baseOffset + pos + decoded.length,
           classes: currentClasses,
         });
       }
-      pos += part.length;
+      pos += decoded.length;
     }
   }
 

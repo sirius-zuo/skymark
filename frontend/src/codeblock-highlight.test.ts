@@ -75,4 +75,39 @@ describe("highlightBlock", () => {
     // Should not throw; returns empty array on catch
     expect(spans).toEqual([]);
   });
+
+  it("maps positions correctly when html contains entities", () => {
+    // highlight.js encodes ' as &#x27;, > as &gt;, etc.
+    // positions must map to decoded text, not raw html
+    const mockWithEntities = {
+      highlight: (_code: string, _opts: { language?: string; ignoreIllegals?: boolean }) => {
+        return {
+          value:
+            '<span class="hljs-keyword">var</span> msg = <span class="hljs-string">&#x27;hello&#x27;</span>;',
+          relevance: 0,
+        };
+      },
+    } as unknown as typeof import("highlight.js").default;
+
+    const block = {
+      codeFrom: 0,
+      codeTo: 30,
+      lang: "javascript",
+      code: "var msg = 'hello';",
+    };
+    const spans = highlightBlock(mockWithEntities, block);
+
+    // "var" should be at 0-3
+    const keywordSpan = spans.find((s: { classes: string[] }) => s.classes.includes("hljs-keyword"));
+    expect(keywordSpan).toBeDefined();
+    expect(keywordSpan!.from).toBe(0);
+    expect(keywordSpan!.to).toBe(3);
+
+    // "'hello'" should be at 10-17 (decoded positions)
+    const stringSpan = spans.find((s: { classes: string[] }) => s.classes.includes("hljs-string"));
+    expect(stringSpan).toBeDefined();
+    expect(stringSpan!.from).toBe(10);
+    expect(stringSpan!.to).toBe(17);
+    expect(block.code.substring(stringSpan!.from, stringSpan!.to)).toBe("'hello'");
+  });
 });
