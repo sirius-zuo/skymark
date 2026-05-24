@@ -163,6 +163,8 @@ body {
 #editor-content { flex: 1; min-height: 0; overflow: hidden; }
 .editor-pane .cm-editor { height: 100%; font-family: var(--font-mono); font-size: 14px; line-height: var(--line-height-editor); }
 .editor-pane .cm-scroller { padding: var(--space-5) var(--space-6) var(--space-5) 0; }
+.editor-pane .cm-gutters { background: var(--color-bg); color: var(--color-text-muted); border-right: var(--pane-divider); }
+.editor-pane .cm-activeLineGutter { color: var(--color-text); font-weight: 500; }
 
 .preview-pane { background: var(--color-surface); overflow: hidden; }
 .preview-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; padding: var(--space-5) var(--space-6); }

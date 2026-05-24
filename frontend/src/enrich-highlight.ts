@@ -1,43 +1,47 @@
 import { getTheme } from "./theme";
-import lightCss from "highlight.js/styles/github.css?inline";
-import darkCss from "highlight.js/styles/github-dark.css?inline";
+import { getShiki, ensureLang, tokenToStyle, shikiTheme } from "./shiki-singleton";
 
-let hljsModule: typeof import("highlight.js").default | null = null;
-let styleEl: HTMLStyleElement | null = null;
-let injectedTheme: string | null = null;
-
-async function loadHljs(): Promise<typeof import("highlight.js").default> {
-  if (!hljsModule) {
-    hljsModule = (await import("highlight.js")).default;
-  }
-  return hljsModule;
-}
-
-function ensureThemeCss(theme: string): void {
-  if (injectedTheme === theme) return;
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = "hljs-theme";
-    document.head.appendChild(styleEl);
-  }
-  styleEl.textContent = theme === "dark" ? darkCss : lightCss;
-  injectedTheme = theme;
-}
-
-export async function enrichHighlight(container: HTMLElement): Promise<void> {
+export async function enrichHighlight(
+  container: HTMLElement,
+  themeOverride?: "light" | "dark"
+): Promise<void> {
   const els = Array.from(
-    container.querySelectorAll<HTMLElement>('code[class^="language-"]:not(.language-mermaid)')
+    container.querySelectorAll<HTMLElement>('code[class*="language-"]:not(.language-mermaid)')
   );
   if (els.length === 0) return;
-  let hljs: typeof import("highlight.js").default;
-  try {
-    hljs = await loadHljs();
-  } catch (err) {
-    console.error("[skymark] highlight.js load failed", err);
-    return;
-  }
-  ensureThemeCss(getTheme());
+
+  const shiki = await getShiki();
+  const theme = shikiTheme(themeOverride ?? getTheme());
+
   for (const el of els) {
-    hljs.highlightElement(el);
+    const langClass = Array.from(el.classList).find((c) => c.startsWith("language-"));
+    const rawLang = langClass ? langClass.slice("language-".length) : "text";
+    // textContent automatically unescapes HTML entities from the rendered markdown
+    const code = (el.textContent ?? "").replace(/\n$/, "");
+    const lang = await ensureLang(shiki, rawLang);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { tokens } = shiki.codeToTokens(code, { lang: lang as any, theme });
+      const nodes: Node[] = [];
+      tokens.forEach((line, lineIdx) => {
+        for (const token of line) {
+          const style = tokenToStyle(token.color, token.fontStyle ?? 0);
+          if (style) {
+            const span = document.createElement("span");
+            span.setAttribute("style", style);
+            span.textContent = token.content;
+            nodes.push(span);
+          } else {
+            nodes.push(document.createTextNode(token.content));
+          }
+        }
+        if (lineIdx < tokens.length - 1) {
+          nodes.push(document.createTextNode("\n"));
+        }
+      });
+      el.replaceChildren(...nodes);
+    } catch {
+      // leave element as-is on error
+    }
   }
 }
