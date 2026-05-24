@@ -1,9 +1,14 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import { exportFile, printWindow } from "./api";
 import { showToast } from "./toast";
+import { enrichHighlight } from "./enrich-highlight";
 
 export async function exportHtml(previewEl: HTMLElement, title: string): Promise<void> {
-  const bodyHtml = previewEl.innerHTML;
+  // Clone the preview and re-highlight with the light theme — the export format
+  // is always light-themed, so dark-mode colors would clash with the white background.
+  const clone = previewEl.cloneNode(true) as HTMLElement;
+  await enrichHighlight(clone, "light");
+  const bodyHtml = clone.innerHTML;
   const html = buildHtml(title, bodyHtml);
   const path = await save({ filters: [{ name: "HTML", extensions: ["html"] }] });
   if (path === null) return;
@@ -28,7 +33,6 @@ function buildHtml(title: string, bodyHtml: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeTitle(title)}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11/styles/github.min.css" />
   <style>
     body { max-width: 800px; margin: 40px auto; padding: 0 24px; font-family: system-ui, sans-serif; line-height: 1.6; color: #1c1917; }
     pre { background: #f5f5f4; padding: 12px 16px; border-radius: 6px; overflow-x: auto; }

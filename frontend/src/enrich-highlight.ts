@@ -1,14 +1,17 @@
 import { getTheme } from "./theme";
 import { getShiki, ensureLang, tokenToStyle, shikiTheme } from "./shiki-singleton";
 
-export async function enrichHighlight(container: HTMLElement): Promise<void> {
+export async function enrichHighlight(
+  container: HTMLElement,
+  themeOverride?: "light" | "dark"
+): Promise<void> {
   const els = Array.from(
     container.querySelectorAll<HTMLElement>('code[class*="language-"]:not(.language-mermaid)')
   );
   if (els.length === 0) return;
 
   const shiki = await getShiki();
-  const theme = shikiTheme(getTheme());
+  const theme = shikiTheme(themeOverride ?? getTheme());
 
   for (const el of els) {
     const langClass = Array.from(el.classList).find((c) => c.startsWith("language-"));
