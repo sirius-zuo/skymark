@@ -6,7 +6,39 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  create-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create release with generated notes
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '')
+            const { data: notes } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+            })
+            const { data: release } = await github.rest.releases.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Skymark ${tag}`,
+              body: notes.body,
+              draft: false,
+              prerelease: false,
+            })
+            return release.id
+
+  build-tauri:
+    needs: create-release
     permissions:
       contents: write
     strategy:
@@ -47,9 +79,5 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Skymark ${{ github.ref_name }}
-          releaseBody: See the assets below to download and install this version.
-          releaseDraft: true
-          prerelease: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
