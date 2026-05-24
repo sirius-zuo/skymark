@@ -1,8 +1,9 @@
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
+import { getTheme, onThemeChange } from "./theme";
+import { getShiki, ensureLang, tokenToStyle, type Highlighter } from "./shiki-singleton";
 
 // Regex: matches ```lang ... ``` fences
-// Groups: [0]=full match, [1]=language tag, [2]=code content
 const fenceRegex = /```([a-zA-Z0-9_+-]+)?\s*\n([\s\S]*?)\n```/g;
 
 interface CodeBlockInfo {
@@ -14,160 +15,78 @@ interface CodeBlockInfo {
 
 function findCodeBlocks(content: string): CodeBlockInfo[] {
   const blocks: CodeBlockInfo[] = [];
-  let m: RegExpExecArray | null;
-  fenceRegex.lastIndex = 0;
-  while ((m = fenceRegex.exec(content)) !== null) {
-    // Find where the code starts: after the first newline following opening fence
-    const firstNewline = m.index + m[0].indexOf("\n");
+  for (const m of content.matchAll(fenceRegex)) {
+    const firstNewline = m.index! + m[0].indexOf("\n");
     const codeFrom = firstNewline + 1;
     const code = m[2];
-    const codeTo = codeFrom + code.length;
-    blocks.push({ codeFrom, codeTo, lang: m[1] || null, code });
+    blocks.push({ codeFrom, codeTo: codeFrom + code.length, lang: m[1] || null, code });
   }
   return blocks;
 }
 
-// Decode common HTML entities that highlight.js uses in its output.
-// highlight.js encodes: ' → &#x27;, / → &#x2F;, > → &gt;, < → &lt;, & → &amp;, " → &quot;
-function decodeHTMLEntities(text: string): string {
-  return (
-    text
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#x27;/g, "'")
-      .replace(/&#x2F;/g, "/")
-      .replace(/&#39;/g, "'")
-      .replace(/&#47;/g, "/")
-  );
-}
-
-function parseHighlightHTML(
-  html: string,
-  baseOffset: number
-): Array<{ from: number; to: number; classes: string[] }> {
-  const results: Array<{ from: number; to: number; classes: string[] }> = [];
-  let pos = 0;
-  let currentClasses: string[] = [];
-
-  const parts = html.split(/(<\/?span[^>]*>)/g);
-
-  for (const part of parts) {
-    if (part.startsWith("<span ")) {
-      const classMatch = part.match(/class="([^"]+)"/);
-      if (classMatch) {
-        currentClasses = classMatch[1].split(" ").filter(Boolean);
-      }
-    } else if (part.startsWith("</span>")) {
-      currentClasses = [];
-    } else if (part) {
-      // Decode HTML entities so positions match the original document text.
-      // highlight.js encodes ' as &#x27;, > as &gt;, etc.
-      const decoded = decodeHTMLEntities(part);
-      if (decoded && currentClasses.length > 0) {
-        results.push({
-          from: baseOffset + pos,
-          to: baseOffset + pos + decoded.length,
-          classes: currentClasses,
-        });
-      }
-      pos += decoded.length;
-    }
-  }
-
-  return results;
-}
-
-function highlightBlock(
-  hljs: typeof import("highlight.js").default,
-  block: CodeBlockInfo
-): Array<{ from: number; to: number; classes: string[] }> {
-  const results: Array<{ from: number; to: number; classes: string[] }> = [];
-  try {
-    const result = block.lang
-      ? hljs.highlight(block.code, { language: block.lang, ignoreIllegals: true })
-      : hljs.highlightAuto(block.code);
-
-    const html = result.value;
-    if (typeof html === "string") {
-      results.push(...parseHighlightHTML(html, block.codeFrom));
-    }
-  } catch {
-    // highlight.js can throw on malformed input — return empty
-  }
-  return results;
-}
-
-function buildDecorations(
-  view: EditorView,
-  hljs: typeof import("highlight.js").default
-): DecorationSet {
+async function buildDecorations(view: EditorView, shiki: Highlighter): Promise<DecorationSet> {
   const doc = view.state.doc.toString();
+  const theme = getTheme() === "dark" ? "one-dark-pro" : "github-light";
   const builder = new RangeSetBuilder<Decoration>();
-  const blocks = findCodeBlocks(doc);
 
-  for (const block of blocks) {
-    const spans = highlightBlock(hljs, block);
-    for (const span of spans) {
-      if (span.classes.length > 0) {
-        builder.add(span.from, span.to, Decoration.mark({ class: span.classes.join(" ") }));
+  for (const block of findCodeBlocks(doc)) {
+    const lang = await ensureLang(shiki, block.lang ?? "text");
+    try {
+      // token.offset is absolute from start of block.code (not per-line)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { tokens } = shiki.codeToTokens(block.code, { lang: lang as any, theme });
+      for (const line of tokens) {
+        for (const token of line) {
+          const style = tokenToStyle(token.color, token.fontStyle ?? 0);
+          if (style) {
+            const from = block.codeFrom + token.offset;
+            builder.add(from, from + token.content.length, Decoration.mark({ attributes: { style } }));
+          }
+        }
       }
+    } catch {
+      // skip block on error — unsupported lang or malformed code
     }
   }
 
   return builder.finish();
 }
 
-// Lazy-load highlight.js (dynamic import avoids Vite tree-shaking of languages)
-let hljsCache: typeof import("highlight.js").default | null = null;
-let hljsLoading: Promise<typeof import("highlight.js").default> | null = null;
-
-function getHljs(): Promise<typeof import("highlight.js").default> {
-  if (hljsCache) return Promise.resolve(hljsCache);
-  if (!hljsLoading) {
-    hljsLoading = import("highlight.js").then((m) => {
-      hljsCache = m.default;
-      return hljsCache;
-    });
-  }
-  return hljsLoading;
-}
-
 export const codeblockHighlight = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
-    dirty: boolean;
+    private view: EditorView;
+    private pending = false;
 
-    constructor(_view: EditorView) {
-      // Build with no-hljs fallback (empty decorations) on first render
+    constructor(view: EditorView) {
+      this.view = view;
       this.decorations = Decoration.none;
-      this.dirty = false;
+      this.schedule();
+      onThemeChange(() => this.schedule());
     }
 
     update(update: ViewUpdate): void {
-      if (update.docChanged) {
-        this.dirty = true;
-        // Queue async rebuild via microtask so it runs before next rAF
-        // Then dispatch a no-op update to force CodeMirror to re-render
-        queueMicrotask(() => {
-          if (!this.dirty) return;
-          this.dirty = false;
-          // Ensure hljs is loaded, then rebuild
-          getHljs().then((hljs) => {
-            this.decorations = buildDecorations(update.view, hljs);
-            // Dispatch empty update to trigger re-render with new decorations
-            update.view.dispatch({});
-          }).catch(() => {
-            // If hljs fails to load, keep empty decorations
-          });
-        });
-      }
+      this.view = update.view;
+      if (update.docChanged) this.schedule();
+    }
+
+    private schedule(): void {
+      if (this.pending) return;
+      this.pending = true;
+      queueMicrotask(() => {
+        this.pending = false;
+        const view = this.view;
+        getShiki()
+          .then((shiki) => buildDecorations(view, shiki))
+          .then((deco) => {
+            this.decorations = deco;
+            view.dispatch({});
+          })
+          .catch(() => {});
+      });
     }
   },
-  {
-    decorations: (v: { decorations: DecorationSet }) => v.decorations,
-  }
+  { decorations: (v) => v.decorations }
 );
 
-export { findCodeBlocks, highlightBlock, buildDecorations };
+export { findCodeBlocks };
