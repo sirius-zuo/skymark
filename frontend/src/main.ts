@@ -119,6 +119,8 @@ files.onStateChange((s) => {
   dirty.hidden = !s.isDirty;
 });
 
+const selfSaved = new Set<string>();
+
 files.onAfterSave((_path) => {
   drafts.onExplicitSave(_path);
   tabs.updateActive({ absPath: _path, isDirty: false });
@@ -127,6 +129,14 @@ files.onAfterSave((_path) => {
     dirTree.setActive(tabs.active.absPath);
   }
 });
+
+async function saveInteractive(content: string): Promise<boolean> {
+  const pathBefore = files.state.path?.replace(/\\/g, "/") ?? null;
+  if (pathBefore) selfSaved.add(pathBefore);
+  const saved = await files.saveInteractive(content);
+  if (!saved && pathBefore) selfSaved.delete(pathBefore);
+  return saved;
+}
 
 const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
 editor.setValue(initial);
@@ -250,7 +260,7 @@ window.addEventListener("keydown", (e) => {
     void openFileInteractive();
   } else if (e.key === "s" || e.key === "S") {
     e.preventDefault();
-    void files.saveInteractive(editor.getValue());
+    void saveInteractive(editor.getValue());
   } else if (e.key === "n" || e.key === "N") {
     e.preventDefault();
     startNewDocument();
@@ -287,10 +297,12 @@ function switchTab(idx: number): void {
   tabs.activateTab(idx);
   const entry = tabs.active;
   if (!entry) return;
+  files.setPath(entry.absPath || null);
   const wasDirty = entry.isDirty;
   editor.setValue(entry.content);
   files.clearDirty();
   tabs.updateActive({ isDirty: wasDirty });
+  if (wasDirty) files.markDirty();
   editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
@@ -344,16 +356,18 @@ async function handleCloseTab(idx: number): Promise<void> {
     if (choice === "cancel") return;
     if (choice === "save") {
       if (idx === tabs.activeIdx) {
-        const saved = await files.saveInteractive(editor.getValue());
+        const saved = await saveInteractive(editor.getValue());
         if (!saved) return;
         // onAfterSave callback already clears isDirty on the active tab
       } else if (entry.absPath) {
         try {
+          selfSaved.add(entry.absPath.replace(/\\/g, "/"));
           await saveFileApi(entry.absPath, entry.content);
           drafts.onExplicitSave(entry.absPath);
           entry.isDirty = false;
           rebindTabBar();
         } catch {
+          selfSaved.delete(entry.absPath.replace(/\\/g, "/"));
           showToast("Save failed");
           return;
         }
@@ -371,6 +385,7 @@ async function handleCloseTab(idx: number): Promise<void> {
     editor.setValue(active.content);
     files.clearDirty();
     tabs.updateActive({ isDirty: wasDirty });
+    if (wasDirty) files.markDirty();
     preview.update(active.content);
     updateTitlebar(active.absPath || null);
     reloadBanner.hidden = !active.externallyModified;
@@ -395,6 +410,7 @@ async function handleCloseTab(idx: number): Promise<void> {
 if (isTauri()) {
   void listen<string>("file-changed", (event) => {
     const changedPath = event.payload.replace(/\\/g, "/");
+    if (selfSaved.delete(changedPath)) return;
     const tabIdx = tabs.entries.findIndex(
       e => e.absPath.replace(/\\/g, "/") === changedPath,
     );
@@ -423,7 +439,7 @@ if (isTauri()) {
     switch (payload) {
       case "new-file":   startNewDocument(); break;
       case "open-file":  void openFileInteractive(); break;
-      case "save-file":  void files.saveInteractive(editor.getValue()); break;
+      case "save-file":  void saveInteractive(editor.getValue()); break;
       case "find":       openSearchPanel(editor.view); break;
       case "print-file": showPrintModal(); break;
     }
@@ -722,10 +738,11 @@ if (isTauri()) {
         if (choice === "cancel") { closing = false; return; }
         if (choice === "save") {
           if (entry === tabs.active) {
-            const saved = await files.saveInteractive(editor.getValue());
+            const saved = await saveInteractive(editor.getValue());
             if (!saved) { closing = false; return; }
           } else if (entry.absPath) {
             try {
+              selfSaved.add(entry.absPath.replace(/\\/g, "/"));
               await saveFileApi(entry.absPath, entry.content);
               drafts.onExplicitSave(entry.absPath);
               entry.isDirty = false;
@@ -739,7 +756,7 @@ if (isTauri()) {
             const entryIdx = tabs.entries.indexOf(entry);
             switchTab(entryIdx);
             files.setPath(null);
-            const saved = await files.saveInteractive(editor.getValue());
+            const saved = await saveInteractive(editor.getValue());
             if (!saved) { closing = false; return; }
           }
         }
@@ -750,7 +767,7 @@ if (isTauri()) {
         const choice = await promptDirtyClose("Untitled");
         if (choice === "cancel") { closing = false; return; }
         if (choice === "save") {
-          const saved = await files.saveInteractive(editor.getValue());
+          const saved = await saveInteractive(editor.getValue());
           if (!saved) { closing = false; return; }
         }
       }
