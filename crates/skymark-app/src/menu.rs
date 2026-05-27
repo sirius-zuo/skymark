@@ -16,6 +16,14 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                         true,
                         Some("CmdOrCtrl+P"),
                     )?;
+                    let sep3 = PredefinedMenuItem::separator(app)?;
+                    let close_all = tauri::menu::MenuItem::with_id(
+                        app,
+                        "close-all-tabs",
+                        "Close All Tabs",
+                        true,
+                        None::<&str>,
+                    )?;
                     let sep2 = PredefinedMenuItem::separator(app)?;
                     let save = tauri::menu::MenuItem::with_id(
                         app,
@@ -40,6 +48,8 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
                         Some("CmdOrCtrl+N"),
                     )?;
                     sub.prepend(&print)?;
+                    sub.prepend(&sep3)?;
+                    sub.prepend(&close_all)?;
                     sub.prepend(&sep2)?;
                     sub.prepend(&save)?;
                     sub.prepend(&sep1)?;

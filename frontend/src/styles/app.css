@@ -169,8 +169,6 @@ body {
 .preview-pane { background: var(--color-surface); overflow: hidden; }
 .preview-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; padding: var(--space-5) var(--space-6); }
 .preview-pane .preview-content {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
   font-family: var(--font-body);
   font-size: 16px;
   line-height: var(--line-height-preview);
@@ -308,7 +306,7 @@ body {
   text-overflow: ellipsis;
 }
 .tab-item:hover { background: var(--color-border); }
-.tab-item.active { background: var(--color-surface); color: var(--color-text); }
+.tab-item.active { background: var(--color-surface); color: var(--color-text); box-shadow: inset 0 2px 0 var(--color-accent); }
 .tab-item .tab-dirty { color: var(--color-accent); flex-shrink: 0; }
 .tab-item .tab-ext-modified { color: var(--color-text-muted); flex-shrink: 0; }
 .tab-item .tab-close { margin-left: auto; padding: 0 2px; flex-shrink: 0; opacity: 0.5; }
