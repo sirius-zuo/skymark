@@ -8,6 +8,9 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: false,
+    fs: {
+      allow: [".."],
+    },
   },
   envPrefix: ["VITE_", "TAURI_ENV_"],
   build: {

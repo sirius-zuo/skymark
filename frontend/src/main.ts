@@ -249,6 +249,15 @@ function startNewDocument(): void {
   showSidebarAndTabs();
 }
 
+async function closeAllTabs(): Promise<void> {
+  let prevLen = tabs.entries.length;
+  while (tabs.entries.length > 0) {
+    await handleCloseTab(0);
+    if (tabs.entries.length >= prevLen) return; // user cancelled
+    prevLen = tabs.entries.length;
+  }
+}
+
 // ---- Keyboard shortcuts ----------------------------------------------------
 
 window.addEventListener("keydown", (e) => {
@@ -437,11 +446,12 @@ if (isTauri()) {
 if (isTauri()) {
   void listen<string>("skymark://menu", ({ payload }) => {
     switch (payload) {
-      case "new-file":   startNewDocument(); break;
-      case "open-file":  void openFileInteractive(); break;
-      case "save-file":  void saveInteractive(editor.getValue()); break;
-      case "find":       openSearchPanel(editor.view); break;
-      case "print-file": showPrintModal(); break;
+      case "new-file":        startNewDocument(); break;
+      case "open-file":       void openFileInteractive(); break;
+      case "save-file":       void saveInteractive(editor.getValue()); break;
+      case "find":            openSearchPanel(editor.view); break;
+      case "print-file":      showPrintModal(); break;
+      case "close-all-tabs":  void closeAllTabs(); break;
     }
   });
 }

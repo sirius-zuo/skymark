@@ -17,8 +17,6 @@ export function createDirTree(
   container: HTMLElement,
   onFileClick: (absPath: string) => void,
 ): DirTree {
-  let currentRoot: string | null = null;
-
   async function fetchEntries(path: string): Promise<DirEntry[]> {
     if (!isTauri()) return [];
     return invoke<DirEntry[]>("list_dir", { path });
@@ -83,11 +81,6 @@ export function createDirTree(
 
   return {
     async setRoot(rootDir: string, activeAbsPath: string | null) {
-      if (currentRoot === rootDir) {
-        if (activeAbsPath) markActive(activeAbsPath);
-        return;
-      }
-      currentRoot = rootDir;
       container.textContent = "";
       try {
         const entries = await fetchEntries(rootDir);
