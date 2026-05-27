@@ -73,10 +73,8 @@ fn slugify(text: &str) -> String {
     for c in text.to_lowercase().chars() {
         if c.is_alphanumeric() {
             slug.push(c);
-        } else if c == ' ' || c == '-' {
-            if !slug.ends_with('-') {
-                slug.push('-');
-            }
+        } else if (c == ' ' || c == '-') && !slug.ends_with('-') {
+            slug.push('-');
         }
     }
     slug.trim_end_matches('-').to_string()
@@ -100,19 +98,17 @@ fn collect_heading_slugs(markdown: &str) -> Vec<String> {
                 in_heading = true;
                 text_buf.clear();
             }
-            Event::End(TagEnd::Heading(_)) => {
-                if in_heading {
-                    let base = slugify(&text_buf);
-                    let count = counts.entry(base.clone()).or_insert(0);
-                    let slug = if *count == 0 {
-                        base.clone()
-                    } else {
-                        format!("{base}-{count}")
-                    };
-                    *count += 1;
-                    slugs.push(slug);
-                    in_heading = false;
-                }
+            Event::End(TagEnd::Heading(_)) if in_heading => {
+                let base = slugify(&text_buf);
+                let count = counts.entry(base.clone()).or_insert(0);
+                let slug = if *count == 0 {
+                    base.clone()
+                } else {
+                    format!("{base}-{count}")
+                };
+                *count += 1;
+                slugs.push(slug);
+                in_heading = false;
             }
             Event::Text(t) if in_heading => text_buf.push_str(&t),
             Event::Code(t) if in_heading => text_buf.push_str(&t),
