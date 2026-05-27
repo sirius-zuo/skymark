@@ -466,6 +466,7 @@ reloadConfirm.addEventListener("click", () => {
     tabs.updateActive({ content, externallyModified: false });
     editor.setValue(content);
     files.clearDirty();
+    tabs.updateActive({ isDirty: false });
     preview.update(content);
     reloadBanner.hidden = true;
     rebindTabBar();
