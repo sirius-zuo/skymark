@@ -85,8 +85,8 @@ fn slugify(text: &str) -> String {
 /// Pre-pass: collect a slug for every heading in document order.
 /// Duplicate slugs get a numeric suffix (-1, -2, …) matching GitHub's behaviour.
 fn collect_heading_slugs(markdown: &str) -> Vec<String> {
-    use std::collections::HashMap;
     use pulldown_cmark::TagEnd;
+    use std::collections::HashMap;
 
     let parser = Parser::new_ext(markdown, gfm_options());
     let mut slugs: Vec<String> = Vec::new();
@@ -159,7 +159,10 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
             if is_block_tag(tag) {
                 let line = byte_to_line(range.start, &line_starts);
                 if matches!(tag, Tag::Heading { .. }) {
-                    let slug = heading_slugs.get(heading_idx).map(String::as_str).unwrap_or("");
+                    let slug = heading_slugs
+                        .get(heading_idx)
+                        .map(String::as_str)
+                        .unwrap_or("");
                     heading_idx += 1;
                     html_buf.push_str(&heading_open_tag(tag, line, slug));
                 } else {
@@ -207,7 +210,9 @@ fn is_block_tag(tag: &Tag) -> bool {
 }
 
 fn heading_open_tag(tag: &Tag, line: usize, id: &str) -> String {
-    let Tag::Heading { level, .. } = tag else { unreachable!() };
+    let Tag::Heading { level, .. } = tag else {
+        unreachable!()
+    };
     if id.is_empty() {
         format!("<h{} data-line=\"{line}\">", *level as u8)
     } else {
