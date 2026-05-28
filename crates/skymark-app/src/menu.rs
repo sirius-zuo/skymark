@@ -8,7 +8,18 @@ pub fn build_menu(app: &App) -> Result<(), tauri::Error> {
     if let Some(menu) = app.menu() {
         for item in menu.items()? {
             if let tauri::menu::MenuItemKind::Submenu(sub) = item.kind() {
-                if let "File" = sub.text()?.as_str() {
+                if let "Skymark" = sub.text()?.as_str() {
+                    let sep = PredefinedMenuItem::separator(app)?;
+                    let check_updates = tauri::menu::MenuItem::with_id(
+                        app,
+                        "check-for-updates",
+                        "Check for Updates\u{2026}",
+                        true,
+                        None::<&str>,
+                    )?;
+                    sub.append(&sep)?;
+                    sub.append(&check_updates)?;
+                } else if let "File" = sub.text()?.as_str() {
                     let print = tauri::menu::MenuItem::with_id(
                         app,
                         "print-file",

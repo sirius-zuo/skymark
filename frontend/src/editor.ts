@@ -165,6 +165,16 @@ const listContinuationKeymap = [
   { key: "Enter", run: listContinuationEnter },
 ];
 
+function insertFourSpaces(view: EditorView): boolean {
+  const { state } = view;
+  view.dispatch(state.update(state.replaceSelection("    "), { scrollIntoView: true, userEvent: "input" }));
+  return true;
+}
+
+const tabKeymap = [
+  { key: "Tab", run: insertFourSpaces },
+];
+
 export function createEditor(
   parent: HTMLElement,
   onChange: DocChangeListener,
@@ -181,6 +191,7 @@ export function createEditor(
         keymap.of([
           ...listContinuationKeymap,
           ...formattingKeymap,
+          ...tabKeymap,
           ...closeBracketsKeymap,
           ...defaultKeymap,
           ...historyKeymap,

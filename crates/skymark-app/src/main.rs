@@ -41,7 +41,7 @@ fn main() {
 
             app.on_menu_event(|app, event| match event.id().as_ref() {
                 "new-file" | "open-file" | "save-file" | "find" | "print-file"
-                | "close-all-tabs" => {
+                | "close-all-tabs" | "check-for-updates" => {
                     let _ = app.emit("skymark://menu", event.id().as_ref());
                 }
                 _ => {}

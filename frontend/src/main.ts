@@ -452,6 +452,9 @@ if (isTauri()) {
       case "find":            openSearchPanel(editor.view); break;
       case "print-file":      showPrintModal(); break;
       case "close-all-tabs":  void closeAllTabs(); break;
+      case "check-for-updates":
+        void checkForUpdate().then((info) => { if (!info) showToast("You're up to date"); });
+        break;
     }
   });
 }
