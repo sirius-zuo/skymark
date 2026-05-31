@@ -37,6 +37,9 @@ fn main() {
             app.manage(watcher::WatcherState {
                 debouncer: std::sync::Mutex::new(None),
                 watched_paths: std::sync::Mutex::new(std::collections::HashSet::new()),
+                mtimes: std::sync::Arc::new(
+                    std::sync::Mutex::new(std::collections::HashMap::new()),
+                ),
             });
 
             app.on_menu_event(|app, event| match event.id().as_ref() {
