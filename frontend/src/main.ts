@@ -713,6 +713,8 @@ void (async () => {
     if (keepDraft) {
       const content = await drafts.recoverDraft(draft.draft_key);
       editor.setValue(content);
+      tabs.updateActive({ content, isDirty: true });
+      rebindTabBar();
       preview.update(content);
       showToast(`Restored draft of "${label}"`);
     } else {
@@ -724,6 +726,8 @@ void (async () => {
       await drafts.dismissDraft(draft.draft_key);
     } else {
       editor.setValue(content);
+      tabs.updateActive({ content, isDirty: true });
+      rebindTabBar();
       preview.update(content);
       showToast(`Recovered unsaved changes to "${label}"`);
     }

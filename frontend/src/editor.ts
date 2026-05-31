@@ -1,4 +1,4 @@
-import { EditorState, EditorSelection, RangeSetBuilder, type Extension } from "@codemirror/state";
+import { EditorState, EditorSelection, RangeSetBuilder, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, ViewPlugin, DecorationSet, Decoration, ViewUpdate } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
@@ -231,7 +231,9 @@ export function createEditor(
           },
         }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          if (update.docChanged && update.transactions.some(
+            tr => tr.annotation(Transaction.userEvent) !== undefined
+          )) {
             onChange(update.state.doc.toString());
           }
         }),
