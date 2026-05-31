@@ -247,6 +247,8 @@ export function createEditor(
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: text },
       });
+      // Corrects stale editorHeight when called before CM6's first measure pass (e.g. startup).
+      view.requestMeasure();
     },
     scrollToLine(line: number) {
       const doc = view.state.doc;
