@@ -135,6 +135,19 @@ async function saveInteractive(content: string): Promise<boolean> {
   if (pathBefore) selfSaved.add(pathBefore);
   const saved = await files.saveInteractive(content);
   if (!saved && pathBefore) selfSaved.delete(pathBefore);
+  if (saved && !pathBefore) {
+    // "Save As" for an untitled document: wire up the sidebar and file watcher.
+    const newPath = files.state.path!;
+    if (!tabs.active) {
+      // Ghost content (no tab tracking it) — create a tab for the saved file.
+      tabs.addTab(newPath, content);
+      updateTitlebar(newPath);
+      rebindTabBar();
+    }
+    showSidebarAndTabs();
+    void dirTree.setRoot(dirOf(newPath), newPath);
+    if (isTauri()) void invoke("add_watch", { path: newPath });
+  }
   return saved;
 }
 
