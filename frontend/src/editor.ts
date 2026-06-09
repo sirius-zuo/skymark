@@ -249,8 +249,11 @@ export function createEditor(
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: text },
       });
-      // Corrects stale editorHeight when called before CM6's first measure pass (e.g. startup).
-      view.requestMeasure();
+      // Measure on the next frame so CM6 has processed the dispatch and rendered
+      // new content before we read DOM geometry. An immediate requestMeasure()
+      // can race CM6's own render RAF and read stale geometry, producing an
+      // incorrect editorHeight that makes the editor show only the first few lines.
+      requestAnimationFrame(() => view.requestMeasure());
     },
     scrollToLine(line: number) {
       const doc = view.state.doc;

@@ -215,6 +215,11 @@ async function openFileByPath(absPath: string): Promise<void> {
     });
   }
   const content = await files.loadFile(absPath);
+  // Re-check after the await: a concurrent openFileByPath call (e.g. from the
+  // skymark://open-file event listener racing with takePendingOpen) may have
+  // already added this tab while loadFile was in flight.
+  const raced = tabs.entries.findIndex(e => e.absPath === absPath);
+  if (raced !== -1) { switchTab(raced); return; }
   tabs.addTab(absPath, content);
   editor.setValue(content);
   files.clearDirty();

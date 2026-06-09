@@ -95,7 +95,10 @@ fn main() {
                             if let Some(state) = _app_handle.try_state::<PendingOpen>() {
                                 *state.0.lock().unwrap() = Some(path_str.clone());
                             }
-                            let _ = _app_handle.emit("skymark://open-file", path_str);
+                            // Do NOT emit skymark://open-file here. On macOS,
+                            // macos_open.rs handles the Apple Event and emits it.
+                            // Emitting from both places causes two concurrent
+                            // openFileByPath calls for the same file on each open.
                             break;
                         }
                     }
