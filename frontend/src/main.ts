@@ -191,6 +191,7 @@ async function openFileInteractive(): Promise<void> {
 
   if (unsavedUntitled !== null) {
     tabs.addTab("", unsavedUntitled);
+    tabs.updateActive({ isDirty: true });
   } else if (tabs.active) {
     tabs.updateActive({
       content: editor.getValue(),
@@ -234,7 +235,10 @@ async function openFileByPath(absPath: string): Promise<void> {
   // already added this tab while loadFile was in flight.
   const raced = tabs.entries.findIndex(e => e.absPath === absPath);
   if (raced !== -1) { switchTab(raced); return; }
-  if (unsavedUntitled !== null) tabs.addTab("", unsavedUntitled);
+  if (unsavedUntitled !== null) {
+    tabs.addTab("", unsavedUntitled);
+    tabs.updateActive({ isDirty: true });
+  }
   tabs.addTab(absPath, content);
   editor.setValue(content);
   files.clearDirty();
