@@ -175,6 +175,13 @@ function showSidebarAndTabs(): void {
 // ---- File action helpers ---------------------------------------------------
 
 async function openFileInteractive(): Promise<void> {
+  // Snapshot before the dialog/load overwrites files.state. If there is no
+  // active tab but the editor has unsaved edits (fresh start or after
+  // close-all-tabs), preserve that content as an untitled tab.
+  const unsavedUntitled = !tabs.active && files.state.isDirty
+    ? editor.getValue()
+    : null;
+
   const content = await files.openInteractive();
   if (content === null) return;
   const newPath = files.state.path!;
@@ -182,7 +189,9 @@ async function openFileInteractive(): Promise<void> {
   const existing = tabs.entries.findIndex(e => e.absPath === newPath);
   if (existing !== -1) { switchTab(existing); return; }
 
-  if (tabs.active) {
+  if (unsavedUntitled !== null) {
+    tabs.addTab("", unsavedUntitled);
+  } else if (tabs.active) {
     tabs.updateActive({
       content: editor.getValue(),
       cursorPos: editor.view.state.selection.main.anchor,
@@ -207,6 +216,11 @@ async function openFileByPath(absPath: string): Promise<void> {
   const existing = tabs.entries.findIndex(e => e.absPath === absPath);
   if (existing !== -1) { switchTab(existing); return; }
 
+  // Snapshot before the load overwrites files.state (same logic as openFileInteractive).
+  const unsavedUntitled = !tabs.active && files.state.isDirty
+    ? editor.getValue()
+    : null;
+
   if (tabs.active) {
     tabs.updateActive({
       content: editor.getValue(),
@@ -220,6 +234,7 @@ async function openFileByPath(absPath: string): Promise<void> {
   // already added this tab while loadFile was in flight.
   const raced = tabs.entries.findIndex(e => e.absPath === absPath);
   if (raced !== -1) { switchTab(raced); return; }
+  if (unsavedUntitled !== null) tabs.addTab("", unsavedUntitled);
   tabs.addTab(absPath, content);
   editor.setValue(content);
   files.clearDirty();
