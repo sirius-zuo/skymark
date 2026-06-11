@@ -4,7 +4,7 @@
 
 # Skymark
 
-Skymark is a fast, lightweight Markdown editor built with Rust and Tauri 2. Write in the left pane, see a live HTML preview on the right. Supports CommonMark, GitHub Flavored Markdown, math via KaTeX, Mermaid diagrams, and syntax highlighting in 100+ languages. Features multi-tab editing, a sidebar file tree, draft auto-save, HTML export, and print-to-PDF. Available for macOS (universal), Linux, and Windows with auto-update. Built on CodeMirror 6 with bidirectional editor-preview scroll sync.
+Skymark is a fast, lightweight Markdown editor built with Rust and Tauri 2. Write in the left pane, see a live HTML preview on the right. Supports CommonMark, GitHub Flavored Markdown, math via KaTeX, Mermaid diagrams, and syntax highlighting in 100+ languages. Features multi-tab editing, a sidebar file tree, draft auto-save, HTML export, print-to-PDF, and smart paste that converts web content to Markdown automatically. Available for macOS (universal), Linux, and Windows with auto-update. Built on CodeMirror 6 with bidirectional editor-preview scroll sync.
 
 ---
 
@@ -48,6 +48,8 @@ See [Build from source](#build-from-source) below.
 The left pane is a full-featured code editor ([CodeMirror 6](https://codemirror.net)) with Markdown syntax highlighting. The preview on the right updates as you type (~50ms debounce).
 
 **Editor-preview sync** — clicking a line in the preview scrolls the editor to the corresponding line, and vice versa. This makes it easy to navigate between source and rendered output.
+
+**Smart paste** — when you copy content from a web page and paste it (`Cmd/Ctrl + V`), Skymark automatically converts the HTML to Markdown, preserving headings, bold, italic, links, lists, tables, code blocks, and strikethrough. Pasting plain text or a URL works as before. To paste without conversion, use `Cmd/Ctrl + Shift + V` (paste as plain text).
 
 Supported Markdown:
 - **CommonMark + GFM** — tables, strikethrough, task lists (`- [ ]`), fenced code blocks with language tags
