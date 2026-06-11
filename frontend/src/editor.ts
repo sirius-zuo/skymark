@@ -8,6 +8,7 @@ import { codeblockHighlight } from "./codeblock-highlight";
 import { searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { continueList, isUrl } from "./smart_edit";
+import { htmlToMarkdown } from "./clipboard-md";
 
 const mathMark = Decoration.mark({ class: "cm-math" });
 
@@ -204,6 +205,21 @@ export function createEditor(
         EditorView.lineWrapping,
         EditorView.domEventHandlers({
           paste(event, view) {
+            const html = event.clipboardData?.getData("text/html") ?? "";
+            if (html && /<[a-z]/i.test(html)) {
+              const md = htmlToMarkdown(html);
+              const { state } = view;
+              const sel = state.selection.main;
+              event.preventDefault();
+              view.dispatch(
+                state.update({
+                  changes: { from: sel.from, to: sel.to, insert: md },
+                  selection: { anchor: sel.from + md.length },
+                  userEvent: "input.paste",
+                })
+              );
+              return true;
+            }
             const text = event.clipboardData?.getData("text/plain") ?? "";
             const url = text.trim();
             if (!isUrl(url)) return false;
