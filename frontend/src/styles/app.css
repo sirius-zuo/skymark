@@ -75,8 +75,9 @@ body {
 @media print {
   .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
   #toast-root { display: none !important; }
-  .panes { display: block !important; grid-template-columns: 1fr !important; width: 100% !important; }
-  .preview-pane { width: 100% !important; border: none; }
+  html, body, #app { height: auto !important; }
+  .panes { display: block !important; grid-template-columns: 1fr !important; width: 100% !important; overflow: visible !important; height: auto !important; }
+  .preview-pane { width: 100% !important; border: none; overflow: visible !important; height: auto !important; }
   .preview-scroll { overflow: visible !important; height: auto !important; padding: 0; }
   .preview-content { max-width: none !important; }
 

@@ -21,8 +21,16 @@ export async function exportHtml(previewEl: HTMLElement, title: string): Promise
   }
 }
 
-export async function exportPdf(): Promise<void> {
+export async function exportPdf(title: string): Promise<void> {
+  const prev = document.title;
+  document.title = title.replace(/\.(md|markdown|txt)$/i, "");
   await printWindow();
+  const restore = () => {
+    document.title = prev;
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  setTimeout(() => { document.title = prev; }, 10000);
 }
 
 function buildHtml(title: string, bodyHtml: string): string {
