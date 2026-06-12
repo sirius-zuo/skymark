@@ -461,10 +461,10 @@ if (isTauri()) {
       e => e.absPath.replace(/\\/g, "/") === changedPath,
     );
     if (tabIdx === -1) return;
+    tabs.markExternallyModified(tabIdx);
     if (tabIdx === tabs.activeIdx) {
       reloadBanner.hidden = false;
     } else {
-      tabs.markExternallyModified(tabIdx);
       rebindTabBar();
     }
   });
@@ -499,18 +499,27 @@ if (isTauri()) {
 // ---- Reload banner ---------------------------------------------------------
 
 reloadConfirm.addEventListener("click", () => {
-  const active = tabs.active;
-  if (!active) return;
+  const reloadPath = tabs.active?.absPath;
+  if (!reloadPath) return;
   void (async () => {
-    const content = await files.loadFile(active.absPath);
-    tabs.updateActive({ content, externallyModified: false });
-    editor.setValue(content);
-    files.clearDirty();
-    tabs.updateActive({ isDirty: false });
-    preview.update(content);
-    reloadBanner.hidden = true;
-    rebindTabBar();
-    dirTree.setActive(active.absPath);
+    try {
+      const content = await files.loadFile(reloadPath);
+      // If the user navigated to a different tab while loading, don't overwrite it.
+      if (tabs.active?.absPath !== reloadPath) {
+        rebindTabBar();
+        return;
+      }
+      tabs.updateActive({ content, externallyModified: false });
+      editor.setValue(content);
+      files.clearDirty();
+      tabs.updateActive({ isDirty: false });
+      preview.update(content);
+      reloadBanner.hidden = true;
+      rebindTabBar();
+      dirTree.setActive(reloadPath);
+    } catch (err) {
+      showToast(`Reload failed: ${String(err)}`);
+    }
   })();
 });
 

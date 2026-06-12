@@ -10,7 +10,8 @@ export async function exportHtml(previewEl: HTMLElement, title: string): Promise
   await enrichHighlight(clone, "light");
   const bodyHtml = clone.innerHTML;
   const html = buildHtml(title, bodyHtml);
-  const path = await save({ filters: [{ name: "HTML", extensions: ["html"] }] });
+  const defaultName = title.replace(/\.(md|markdown)$/i, "") + ".html";
+  const path = await save({ defaultPath: defaultName, filters: [{ name: "HTML", extensions: ["html"] }] });
   if (path === null) return;
   try {
     await exportFile(path, html);
