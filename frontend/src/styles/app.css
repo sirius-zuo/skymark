@@ -327,23 +327,50 @@ body {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
-  background: var(--color-surface);
-  border-bottom: var(--pane-divider);
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  border-left: 3px solid #f59e0b;
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: #92400e;
   flex-shrink: 0;
+}
+[data-theme="dark"] #reload-banner {
+  background: #1c1400;
+  border-bottom-color: #78350f;
+  border-left-color: #d97706;
+  color: #fcd34d;
 }
 #reload-banner button {
   padding: var(--space-1) var(--space-3);
   font-family: var(--font-ui);
   font-size: 12px;
-  border: var(--pane-divider);
   border-radius: 4px;
   cursor: pointer;
-  background: var(--color-bg);
-  color: var(--color-text);
 }
-#reload-banner button:hover { background: var(--color-border); }
+#reload-confirm {
+  background: #f59e0b;
+  color: #1c1400;
+  border: 1px solid #d97706;
+  font-weight: 500;
+}
+#reload-confirm:hover { background: #d97706; }
+[data-theme="dark"] #reload-confirm {
+  background: #d97706;
+  color: #fff;
+  border-color: #b45309;
+}
+[data-theme="dark"] #reload-confirm:hover { background: #b45309; }
+#reload-dismiss {
+  background: transparent;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+#reload-dismiss:hover { background: #fef3c7; }
+[data-theme="dark"] #reload-dismiss {
+  color: #fcd34d;
+  border-color: #78350f;
+}
+[data-theme="dark"] #reload-dismiss:hover { background: #292400; }
 
 /* ---- Update banner --------------------------------------------------------- */
 
