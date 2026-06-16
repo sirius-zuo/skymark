@@ -333,6 +333,7 @@ function rebindTabBar(): void {
 }
 
 function switchTab(idx: number): void {
+  if (idx === tabs.activeIdx) return;
   if (tabs.active) {
     tabs.updateActive({
       content: editor.getValue(),
