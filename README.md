@@ -49,7 +49,7 @@ The left pane is a full-featured code editor ([CodeMirror 6](https://codemirror.
 
 **Editor-preview sync** — clicking a line in the preview scrolls the editor to the corresponding line, and vice versa. This makes it easy to navigate between source and rendered output.
 
-**Smart paste** — when you copy content from a web page and paste it (`Cmd/Ctrl + V`), Skymark automatically converts the HTML to Markdown, preserving headings, bold, italic, links, lists, tables, code blocks, and strikethrough. Pasting plain text or a URL works as before. To paste without conversion, use `Cmd/Ctrl + Shift + V` (paste as plain text).
+**Smart paste** — when you copy content from a web page and paste it (`Cmd/Ctrl + V`), Skymark automatically converts the HTML to Markdown, preserving headings, bold, italic, links, lists, tables, code blocks, and strikethrough. Pasting JSON (an object or array) auto-formats it as a pretty-printed ` ```json ` code block. Pasting plain text or a URL works as before. To paste without conversion, use `Cmd/Ctrl + Shift + V` (paste as plain text).
 
 Supported Markdown:
 - **CommonMark + GFM** — tables, strikethrough, task lists (`- [ ]`), fenced code blocks with language tags
