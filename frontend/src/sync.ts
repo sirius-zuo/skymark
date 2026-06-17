@@ -6,7 +6,13 @@ export function createSyncExtension(preview: PreviewHandle): Extension {
   let cursorTimer: number | null = null;
 
   return EditorView.updateListener.of((update) => {
-    if (update.viewportChanged) {
+    // Skip when the document itself changed (e.g. setValue() swapping in a
+    // different tab's content wholesale): the viewport always "changes" too
+    // in that case, but reading geometry here (coordsAtPos/lineBlockAt) right
+    // after a full-document replace can race CM6's own remeasure and throw
+    // (mapping a stale cached position through the new changeset). Preview
+    // sync for a tab switch happens separately via preview.update(content).
+    if (update.viewportChanged && !update.docChanged) {
       const view = update.view;
       const dataLines = preview.getDataLineNumbers();
       if (dataLines.length === 0) return;

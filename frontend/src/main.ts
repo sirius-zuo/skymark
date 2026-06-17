@@ -289,7 +289,12 @@ function startNewDocument(): void {
 async function closeAllTabs(): Promise<void> {
   let prevLen = tabs.entries.length;
   while (tabs.entries.length > 0) {
-    await handleCloseTab(0);
+    try {
+      await handleCloseTab(0);
+    } catch (err) {
+      showToast(`Close all tabs stopped: ${String(err)}`);
+      return;
+    }
     if (tabs.entries.length >= prevLen) return; // user cancelled
     prevLen = tabs.entries.length;
   }
@@ -350,7 +355,12 @@ function switchTab(idx: number): void {
   files.clearDirty();
   tabs.updateActive({ isDirty: wasDirty });
   if (wasDirty) files.markDirty();
-  editor.view.dispatch({ selection: { anchor: entry.cursorPos }, scrollIntoView: true });
+  // Clamp against the live document: entry.cursorPos can go stale relative to
+  // entry.content (e.g. external reload, draft recovery), and dispatching an
+  // out-of-range anchor throws synchronously, aborting this function before
+  // preview/tab-bar/dirTree below ever run.
+  const safeCursorPos = Math.min(entry.cursorPos, editor.view.state.doc.length);
+  editor.view.dispatch({ selection: { anchor: safeCursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
   updateTitlebar(entry.absPath || null);
@@ -759,17 +769,22 @@ void (async () => {
     );
     if (keepDraft) {
       const content = await drafts.recoverDraft(draft.draft_key);
-      editor.setValue(content);
-      tabs.updateActive({ content, isDirty: true });
-      rebindTabBar();
-      preview.update(content);
-      showToast(`Restored draft of "${label}"`);
+      // If the user navigated to a different tab while loading, don't overwrite it.
+      if (tabs.active?.absPath === activePath) {
+        editor.setValue(content);
+        tabs.updateActive({ content, isDirty: true });
+        rebindTabBar();
+        preview.update(content);
+        showToast(`Restored draft of "${label}"`);
+      }
     } else {
       await drafts.dismissDraft(draft.draft_key);
     }
   } else {
     const content = await drafts.recoverDraft(draft.draft_key);
-    if (content === (tabs.active?.content ?? "")) {
+    if (tabs.active?.absPath !== activePath) {
+      // User navigated to a different tab while loading; leave both alone.
+    } else if (content === (tabs.active?.content ?? "")) {
       await drafts.dismissDraft(draft.draft_key);
     } else {
       editor.setValue(content);

@@ -108,3 +108,29 @@ describe("insertTemplate", () => {
     expect(view.state.selection.main.head).toBe(2);
   });
 });
+
+// Regression: switchTab() in main.ts dispatches a raw selection anchor read
+// from a tab's stored cursorPos. If that stored value is stale relative to
+// the tab's content (e.g. set before an external reload/draft recovery
+// shrank the document), dispatching it unclamped throws synchronously and
+// aborts switchTab before it updates the preview/tab-bar/dirTree.
+describe("stale cursorPos handling (switchTab safety net)", () => {
+  it("dispatching an out-of-range anchor throws", () => {
+    const view = makeView("0123456789", 0);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "ab" } });
+    expect(() => {
+      view.dispatch({ selection: { anchor: 9 }, scrollIntoView: true });
+    }).toThrow();
+  });
+
+  it("clamping the anchor to the document length avoids the throw", () => {
+    const view = makeView("0123456789", 0);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "ab" } });
+    const staleCursorPos = 9;
+    const safeCursorPos = Math.min(staleCursorPos, view.state.doc.length);
+    expect(() => {
+      view.dispatch({ selection: { anchor: safeCursorPos }, scrollIntoView: true });
+    }).not.toThrow();
+    expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
+  });
+});

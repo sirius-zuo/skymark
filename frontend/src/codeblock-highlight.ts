@@ -67,7 +67,15 @@ export const codeblockHighlight = ViewPlugin.fromClass(
 
     update(update: ViewUpdate): void {
       this.view = update.view;
-      if (update.docChanged) this.schedule();
+      if (update.docChanged) {
+        // Remap synchronously so `decorations` is never stale relative to the
+        // live document, even before the async Shiki rebuild below catches up.
+        // Without this, a *different*, unrelated dispatch (e.g. another tab
+        // switch) can read this still-stale set during its own decoration
+        // diff and crash trying to map an old position through its changeset.
+        this.decorations = this.decorations.map(update.changes);
+        this.schedule();
+      }
     }
 
     private schedule(): void {
@@ -76,9 +84,16 @@ export const codeblockHighlight = ViewPlugin.fromClass(
       queueMicrotask(() => {
         this.pending = false;
         const view = this.view;
+        const doc = view.state.doc;
         getShiki()
           .then((shiki) => buildDecorations(view, shiki))
           .then((deco) => {
+            // The document this was computed for may no longer be live (e.g. the
+            // editor was switched to a different tab while Shiki tokenized async).
+            // Applying decorations built for a different document can position
+            // them past the end of the current one, crashing the next dispatch.
+            // A docChanged update already re-scheduled a fresh rebuild, so just drop this one.
+            if (!view.state.doc.eq(doc)) return;
             this.decorations = deco;
             view.dispatch({});
           })
