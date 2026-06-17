@@ -510,7 +510,7 @@ reloadConfirm.addEventListener("click", () => {
         rebindTabBar();
         return;
       }
-      tabs.updateActive({ content, externallyModified: false });
+      tabs.updateActive({ content, cursorPos: 0, scrollTop: 0, externallyModified: false });
       editor.setValue(content);
       files.clearDirty();
       tabs.updateActive({ isDirty: false });
