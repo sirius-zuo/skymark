@@ -4,11 +4,12 @@ import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting } from "@codemirror/language";
 import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
-import { codeblockHighlight } from "./codeblock-highlight";
+import { codeblockHighlight, findCodeBlocks } from "./codeblock-highlight";
 import { searchKeymap } from "@codemirror/search";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { continueList, isUrl } from "./smart_edit";
 import { htmlToMarkdown } from "./clipboard-md";
+import { formatJsonForPaste } from "./clipboard-json";
 
 const mathMark = Decoration.mark({ class: "cm-math" });
 
@@ -221,6 +222,24 @@ export function createEditor(
               return true;
             }
             const text = event.clipboardData?.getData("text/plain") ?? "";
+            const jsonPretty = formatJsonForPaste(text);
+            if (jsonPretty !== null) {
+              const { state } = view;
+              const sel = state.selection.main;
+              const insideFence = findCodeBlocks(state.doc.toString()).some(
+                (b) => sel.from >= b.codeFrom && sel.from <= b.codeTo
+              );
+              const insert = insideFence ? jsonPretty : "```json\n" + jsonPretty + "\n```";
+              event.preventDefault();
+              view.dispatch(
+                state.update({
+                  changes: { from: sel.from, to: sel.to, insert },
+                  selection: { anchor: sel.from + insert.length },
+                  userEvent: "input.paste",
+                })
+              );
+              return true;
+            }
             const url = text.trim();
             if (!isUrl(url)) return false;
             const { state } = view;
