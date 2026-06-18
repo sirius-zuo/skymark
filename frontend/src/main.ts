@@ -109,9 +109,11 @@ onUpdateAvailable(({ version }) => {
 });
 window.setTimeout(() => { void checkForUpdate(); }, 3000);
 updateCheckBtn.addEventListener("click", () => {
-  void checkForUpdate().then((info) => {
-    if (!info) showToast("You're up to date");
-  });
+  void checkForUpdate()
+    .then((info) => {
+      if (!info) showToast("You're up to date");
+    })
+    .catch(() => showToast("Could not check for updates"));
 });
 
 files.onStateChange((s) => {
@@ -501,7 +503,9 @@ if (isTauri()) {
       case "print-file":      showPrintModal(); break;
       case "close-all-tabs":  void closeAllTabs(); break;
       case "check-for-updates":
-        void checkForUpdate().then((info) => { if (!info) showToast("You're up to date"); });
+        void checkForUpdate()
+          .then((info) => { if (!info) showToast("You're up to date"); })
+          .catch(() => showToast("Could not check for updates"));
         break;
     }
   });

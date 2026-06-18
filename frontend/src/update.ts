@@ -22,8 +22,10 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
     const info: UpdateInfo = { version: update.version, body: update.body ?? null };
     callbacks.forEach((cb) => cb(info));
     return info;
-  } catch {
-    return null;
+  } catch (err) {
+    console.error("[skymark] update check failed:", err);
+    // Re-throw so callers can distinguish "no update" from "check failed"
+    throw err;
   }
 }
 
