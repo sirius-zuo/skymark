@@ -18,14 +18,17 @@ fn take_pending_open(state: tauri::State<PendingOpen>) -> Option<String> {
     state.0.lock().unwrap().take()
 }
 
+#[tauri::command]
+fn get_app_version() -> String {
+    std::env::var("TAURI_PACKAGE_VERSION").unwrap_or_else(|_| "0.0.0".to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         // Managed here (not in setup) so it's available before RunEvent::Opened fires,
         // which on macOS can happen before the setup closure runs.
         .manage(PendingOpen(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             if let Ok(d) = app.path().app_data_dir().map(|d| d.join("drafts")) {
                 let _ = draft::gc_old_drafts_in_dir(&d);
@@ -69,6 +72,7 @@ fn main() {
             watcher::remove_watch,
             watcher::clear_all,
             take_pending_open,
+            get_app_version,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Skymark")

@@ -1,8 +1,7 @@
-import { installUpdate } from "./update";
 import { showToast } from "./toast";
 
 export interface UpdateBannerHandle {
-  show(version: string): void;
+  show(version: string, url: string): void;
   hide(): void;
 }
 
@@ -14,18 +13,9 @@ export function createUpdateBanner(host: HTMLElement): UpdateBannerHandle {
   const msg = document.createElement("span");
   msg.className = "update-banner-msg";
 
-  const installBtn = document.createElement("button");
-  installBtn.className = "update-install-btn";
-  installBtn.textContent = "Install & Restart";
-  installBtn.addEventListener("click", () => {
-    installBtn.disabled = true;
-    installBtn.textContent = "Installing…";
-    void installUpdate().catch((err) => {
-      showToast(`Update failed: ${String(err)}`);
-      installBtn.disabled = false;
-      installBtn.textContent = "Install & Restart";
-    });
-  });
+  const openLinkBtn = document.createElement("button");
+  openLinkBtn.className = "update-install-btn";
+  openLinkBtn.textContent = "Open Release";
 
   const dismissBtn = document.createElement("button");
   dismissBtn.className = "update-dismiss-btn";
@@ -34,12 +24,26 @@ export function createUpdateBanner(host: HTMLElement): UpdateBannerHandle {
   dismissBtn.addEventListener("click", () => { banner.hidden = true; });
 
   banner.appendChild(msg);
-  banner.appendChild(installBtn);
+  banner.appendChild(openLinkBtn);
   banner.appendChild(dismissBtn);
   host.appendChild(banner);
 
+  let releaseUrl = "";
+
+  openLinkBtn.addEventListener("click", () => {
+    if (releaseUrl) {
+      showToast("Opening release page…");
+      const link = document.createElement("a");
+      link.href = releaseUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+    }
+  });
+
   return {
-    show(version: string): void {
+    show(version: string, url: string): void {
+      releaseUrl = url;
       msg.textContent = `Skymark ${version} is available.`;
       banner.hidden = false;
     },

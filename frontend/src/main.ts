@@ -102,8 +102,8 @@ const exportDropdown = createExportDropdown(
 exportDropdownRoot.appendChild(exportDropdown.el);
 
 const updateBanner = createUpdateBanner(updateBannerRoot);
-onUpdateAvailable(({ version }) => {
-  updateBanner.show(version);
+onUpdateAvailable(({ version, url }) => {
+  updateBanner.show(version, url);
   updateCheckBtn.hidden = false;
   updateCheckBtn.classList.add("has-update");
 });
@@ -113,7 +113,7 @@ updateCheckBtn.addEventListener("click", () => {
     .then((info) => {
       if (!info) showToast("You're up to date");
     })
-    .catch(() => showToast("Could not check for updates"));
+    .catch((err) => showToast(`Could not check for updates: ${String(err)}`));
 });
 
 files.onStateChange((s) => {
@@ -505,7 +505,7 @@ if (isTauri()) {
       case "check-for-updates":
         void checkForUpdate()
           .then((info) => { if (!info) showToast("You're up to date"); })
-          .catch(() => showToast("Could not check for updates"));
+          .catch((err) => showToast(`Could not check for updates: ${String(err)}`));
         break;
     }
   });

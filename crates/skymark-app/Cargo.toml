@@ -16,8 +16,6 @@ serde_json.workspace = true
 thiserror.workspace = true
 skymark-core = { path = "../skymark-core" }
 notify-debouncer-mini.workspace = true
-tauri-plugin-updater.workspace = true
-tauri-plugin-process.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
