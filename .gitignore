@@ -25,3 +25,7 @@ crates/skymark-app/gen/
 
 # Skymark vault internals (forward-looking)
 .skymark/
+
+# Local dev tooling
+.codegraph/
+.playwright-mcp/
