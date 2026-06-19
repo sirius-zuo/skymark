@@ -68,12 +68,12 @@ describe("createStatsBar", () => {
     expect(el.textContent).toBe("2 words · 11 characters · ~3 tokens · 1 line");
   });
 
-  it("renders selection stats with a 'selected' suffix when the selection is non-empty", () => {
+  it("renders selection stats with a single trailing 'selected' suffix when the selection is non-empty", () => {
     const el = document.createElement("div");
     const bar = createStatsBar(el);
     bar.update("hello world", { from: 0, to: 5 }); // "hello"
     expect(el.textContent).toBe(
-      "1 word selected · 5 characters selected · ~1 token selected · 1 line selected"
+      "1 word · 5 characters · ~1 token · 1 line selected"
     );
   });
 

@@ -31,13 +31,13 @@ export function createStatsBar(el: HTMLElement): StatsBarHandle {
     update(doc, selection) {
       const hasSelection = selection.to > selection.from;
       const text = hasSelection ? doc.slice(selection.from, selection.to) : doc;
-      const suffix = hasSelection ? " selected" : "";
+      const lastSuffix = hasSelection ? " selected" : "";
 
       el.textContent = [
-        `${pluralize(countWords(text), "word")}${suffix}`,
-        `${pluralize(countCharacters(text), "character")}${suffix}`,
-        `~${pluralize(estimateTokens(text), "token")}${suffix}`,
-        `${pluralize(countLines(text), "line")}${suffix}`,
+        pluralize(countWords(text), "word"),
+        pluralize(countCharacters(text), "character"),
+        `~${pluralize(estimateTokens(text), "token")}`,
+        `${pluralize(countLines(text), "line")}${lastSuffix}`,
       ].join(" · ");
       el.title = TOKEN_ESTIMATE_TOOLTIP;
     },
