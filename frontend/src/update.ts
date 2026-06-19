@@ -14,9 +14,15 @@ export function onUpdateAvailable(cb: UpdateCallback): void {
 }
 
 // Minimal semantic version comparison: returns true if a > b.
+// Extracts only the leading numeric portion of each part to handle
+// non-numeric suffixes like "10-beta" or "+build" (where Number() gives NaN).
 function isNewer(a: string, b: string): boolean {
-  const aParts = a.replace(/^v/, "").split(".").map(Number);
-  const bParts = b.replace(/^v/, "").split(".").map(Number);
+  const aParts = a.replace(/^v/, "").split(".").map((p) =>
+    parseInt(p.match(/\d+/)?.[0] ?? "0", 10),
+  );
+  const bParts = b.replace(/^v/, "").split(".").map((p) =>
+    parseInt(p.match(/\d+/)?.[0] ?? "0", 10),
+  );
   const len = Math.max(aParts.length, bParts.length);
   for (let i = 0; i < len; i++) {
     const aVal = aParts[i] ?? 0;
@@ -43,6 +49,13 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
   }
 
   const latestVersion = release.tag_name;
+
+  console.log(
+    "[skymark] update check: latest=%s, current=%s, isNewer=%s",
+    latestVersion,
+    currentVersion,
+    isNewer(latestVersion, currentVersion),
+  );
 
   if (!isNewer(latestVersion, currentVersion)) return null;
 

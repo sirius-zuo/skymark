@@ -19,8 +19,8 @@ fn take_pending_open(state: tauri::State<PendingOpen>) -> Option<String> {
 }
 
 #[tauri::command]
-fn get_app_version() -> String {
-    std::env::var("TAURI_PACKAGE_VERSION").unwrap_or_else(|_| "0.0.0".to_string())
+fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
 }
 
 fn main() {
