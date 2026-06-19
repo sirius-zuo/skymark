@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { countWords, countCharacters, countLines, estimateTokens } from "./stats";
 
 describe("countWords", () => {
@@ -91,5 +91,41 @@ describe("createStatsBar", () => {
     expect(el.title).toBe(
       "Estimated at ~4 characters per token; actual token count varies by model."
     );
+  });
+});
+
+import { initStatsVisible, toggleStatsVisible } from "./stats";
+
+describe("stats visibility persistence", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = '<footer id="stats-footer"></footer>';
+  });
+
+  it("defaults to visible when no preference is stored", () => {
+    initStatsVisible();
+    const footer = document.getElementById("stats-footer") as HTMLElement;
+    expect(footer.hidden).toBe(false);
+  });
+
+  it("restores a previously hidden preference", () => {
+    localStorage.setItem("skymark:stats-visible", "false");
+    initStatsVisible();
+    const footer = document.getElementById("stats-footer") as HTMLElement;
+    expect(footer.hidden).toBe(true);
+  });
+
+  it("toggleStatsVisible flips visibility and persists it", () => {
+    initStatsVisible();
+    const footer = document.getElementById("stats-footer") as HTMLElement;
+    expect(footer.hidden).toBe(false);
+
+    toggleStatsVisible();
+    expect(footer.hidden).toBe(true);
+    expect(localStorage.getItem("skymark:stats-visible")).toBe("false");
+
+    toggleStatsVisible();
+    expect(footer.hidden).toBe(false);
+    expect(localStorage.getItem("skymark:stats-visible")).toBe("true");
   });
 });

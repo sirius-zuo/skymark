@@ -43,3 +43,18 @@ export function createStatsBar(el: HTMLElement): StatsBarHandle {
     },
   };
 }
+
+const STATS_VISIBLE_KEY = "skymark:stats-visible";
+
+export function initStatsVisible(): void {
+  const footer = document.getElementById("stats-footer");
+  if (!footer) return;
+  footer.hidden = localStorage.getItem(STATS_VISIBLE_KEY) === "false";
+}
+
+export function toggleStatsVisible(): void {
+  const footer = document.getElementById("stats-footer");
+  if (!footer) return;
+  footer.hidden = !footer.hidden;
+  localStorage.setItem(STATS_VISIBLE_KEY, footer.hidden ? "false" : "true");
+}
