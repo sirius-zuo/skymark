@@ -80,6 +80,7 @@ const editor = createEditor(
       rebindTabBar();
     }
   },
+  () => {},
   [syncExt]
 );
 

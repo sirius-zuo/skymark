@@ -180,6 +180,7 @@ const tabKeymap = [
 export function createEditor(
   parent: HTMLElement,
   onChange: DocChangeListener,
+  onSelectionChange: (selection: { from: number; to: number }) => void,
   extra: Extension[] = []
 ): EditorHandle {
   const view = new EditorView({
@@ -270,6 +271,9 @@ export function createEditor(
             tr => tr.annotation(Transaction.userEvent) !== undefined
           )) {
             onChange(update.state.doc.toString());
+          }
+          if (update.selectionSet) {
+            onSelectionChange(update.state.selection.main);
           }
         }),
         ...extra,
