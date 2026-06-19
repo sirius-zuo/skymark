@@ -90,6 +90,10 @@ Skymark augments the native OS menu with File and Edit items:
 
 Click the **🌙** button in the titlebar to toggle between light and dark themes.
 
+### Stats footer
+
+A footer bar below the editor shows word, character, estimated token, and line counts for the current document. Selecting text switches the counts to the selection. Click the **#** button in the titlebar to show or hide the footer; the choice is remembered between launches.
+
 ### Auto-update
 
 Skymark checks for updates 3 seconds after launch. When a new version is available, a banner appears below the titlebar with an **Install & Restart** button. You can also click the **↑** button in the titlebar to check manually.

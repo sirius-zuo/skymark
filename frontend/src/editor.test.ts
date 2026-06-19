@@ -1,8 +1,8 @@
 // frontend/src/editor.test.ts
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { describe, it, expect } from "vitest";
-import { toggleLinePrefix, insertTemplate } from "./editor";
+import { describe, it, expect, vi } from "vitest";
+import { toggleLinePrefix, insertTemplate, createEditor } from "./editor";
 
 function makeView(doc: string, anchor = doc.length, head = anchor): EditorView {
   return new EditorView({
@@ -132,5 +132,36 @@ describe("stale cursorPos handling (switchTab safety net)", () => {
       view.dispatch({ selection: { anchor: safeCursorPos }, scrollIntoView: true });
     }).not.toThrow();
     expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
+  });
+});
+
+
+describe("createEditor onSelectionChange", () => {
+  it("calls onSelectionChange with the main selection range when selection changes without a doc edit", () => {
+    const parent = document.createElement("div");
+    const onChange = vi.fn();
+    const onSelectionChange = vi.fn();
+    const editor = createEditor(parent, onChange, onSelectionChange);
+
+    editor.setValue("hello world");
+    onSelectionChange.mockClear();
+    editor.view.dispatch({ selection: { anchor: 1, head: 4 } });
+
+    expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    const call = onSelectionChange.mock.calls[0];
+    expect(call[0].from).toBe(1);
+    expect(call[0].to).toBe(4);
+  });
+
+  it("does not call onChange for a selection-only dispatch", () => {
+    const parent = document.createElement("div");
+    const onChange = vi.fn();
+    const editor = createEditor(parent, onChange, () => {});
+
+    editor.setValue("hello world");
+    onChange.mockClear();
+    editor.view.dispatch({ selection: { anchor: 1, head: 4 } });
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

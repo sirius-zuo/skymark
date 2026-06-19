@@ -15,6 +15,7 @@ import { createExportDropdown } from "./export-dropdown";
 import { checkForUpdate, onUpdateAvailable } from "./update";
 import { createUpdateBanner } from "./update-banner";
 import { createToolbar } from "./toolbar";
+import { createStatsBar, initStatsVisible, toggleStatsVisible } from "./stats";
 
 // ---- DOM elements ----------------------------------------------------------
 
@@ -34,11 +35,14 @@ const themeToggleEl = document.getElementById("theme-toggle") as HTMLButtonEleme
 const exportDropdownRootEl = document.getElementById("export-dropdown-root") as HTMLElement | null;
 const updateBannerRootEl = document.getElementById("update-banner-root") as HTMLElement | null;
 const updateCheckBtnEl = document.getElementById("update-check-btn") as HTMLButtonElement | null;
+const statsFooterEl = document.getElementById("stats-footer") as HTMLElement | null;
+const statsToggleBtnEl = document.getElementById("stats-toggle-btn") as HTMLButtonElement | null;
 
 if (!editorHost || !previewHost || !sidebarEl || !titleEl ||
     !dirtyEl || !panesEl || !tabBarEl || !reloadBannerEl ||
     !reloadConfirmEl || !reloadDismissEl || !sidebarResizerEl || !paneResizerEl ||
-    !themeToggleEl || !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl) {
+    !themeToggleEl || !exportDropdownRootEl || !updateBannerRootEl || !updateCheckBtnEl ||
+    !statsFooterEl || !statsToggleBtnEl) {
   throw new Error("missing layout host elements");
 }
 
@@ -56,13 +60,18 @@ const themeToggle = themeToggleEl;
 const exportDropdownRoot = exportDropdownRootEl;
 const updateBannerRoot = updateBannerRootEl;
 const updateCheckBtn = updateCheckBtnEl;
+const statsFooter = statsFooterEl;
+const statsToggleBtn = statsToggleBtnEl;
 
 // ---- Setup -----------------------------------------------------------------
 
 initTheme();
 themeToggle.addEventListener("click", toggleTheme);
+initStatsVisible();
+statsToggleBtn.addEventListener("click", toggleStatsVisible);
 
 const preview = createPreview(previewHost);
+const stats = createStatsBar(statsFooter);
 const syncExt = createSyncExtension(preview);
 const files = createFileFlow();
 const drafts = createDraftHandle();
@@ -73,6 +82,7 @@ const editor = createEditor(
   editorHost,
   (text) => {
     preview.update(text);
+    stats.update(text, { from: 0, to: 0 });
     files.markDirty();
     drafts.onDocChange(files.state.path, () => editor.getValue());
     if (tabs.active) {
@@ -80,6 +90,7 @@ const editor = createEditor(
       rebindTabBar();
     }
   },
+  (selection) => { stats.update(editor.getValue(), selection); },
   [syncExt]
 );
 
@@ -156,6 +167,7 @@ async function saveInteractive(content: string): Promise<boolean> {
 const initial = "# Welcome to Skymark\n\nStart typing in the editor on the left.\n";
 editor.setValue(initial);
 preview.update(initial);
+stats.update(initial, { from: 0, to: 0 });
 files.clearDirty();
 
 // ---- Pane split helpers ----------------------------------------------------
@@ -219,6 +231,7 @@ async function openFileInteractive(): Promise<void> {
   files.clearDirty();
   tabs.updateActive({ isDirty: false });
   preview.update(content);
+  stats.update(content, { from: 0, to: 0 });
   updateTitlebar(newPath);
   reloadBanner.hidden = true;
   tabs.persist();
@@ -259,6 +272,7 @@ async function openFileByPath(absPath: string): Promise<void> {
   files.clearDirty();
   tabs.updateActive({ isDirty: false });
   preview.update(content);
+  stats.update(content, { from: 0, to: 0 });
   updateTitlebar(absPath);
   reloadBanner.hidden = true;
   tabs.persist();
@@ -282,6 +296,7 @@ function startNewDocument(): void {
   files.clearDirty();
   tabs.updateActive({ isDirty: false });
   preview.update("");
+  stats.update("", { from: 0, to: 0 });
   updateTitlebar(null);
   reloadBanner.hidden = true;
   rebindTabBar();
@@ -365,6 +380,7 @@ function switchTab(idx: number): void {
   editor.view.dispatch({ selection: { anchor: safeCursorPos }, scrollIntoView: true });
   editor.view.scrollDOM.scrollTop = entry.scrollTop;
   preview.update(entry.content);
+  stats.update(entry.content, { from: 0, to: 0 });
   updateTitlebar(entry.absPath || null);
   reloadBanner.hidden = !entry.externallyModified;
   rebindTabBar();
@@ -446,6 +462,7 @@ async function handleCloseTab(idx: number): Promise<void> {
     tabs.updateActive({ isDirty: wasDirty });
     if (wasDirty) files.markDirty();
     preview.update(active.content);
+    stats.update(active.content, { from: 0, to: 0 });
     updateTitlebar(active.absPath || null);
     reloadBanner.hidden = !active.externallyModified;
     if (active.absPath) {
@@ -454,6 +471,7 @@ async function handleCloseTab(idx: number): Promise<void> {
   } else {
     editor.setValue("");
     preview.update("");
+    stats.update("", { from: 0, to: 0 });
     files.newDocument();
     reloadBanner.hidden = true;
     tabBar.hidden = true;
@@ -529,6 +547,7 @@ reloadConfirm.addEventListener("click", () => {
       files.clearDirty();
       tabs.updateActive({ isDirty: false });
       preview.update(content);
+      stats.update(content, { from: 0, to: 0 });
       reloadBanner.hidden = true;
       rebindTabBar();
       dirTree.setActive(reloadPath);
@@ -727,6 +746,7 @@ void (async () => {
         files.clearDirty();
         tabs.updateActive({ isDirty: false });
         preview.update(tabs.active.content);
+        stats.update(tabs.active.content, { from: 0, to: 0 });
         updateTitlebar(tabs.active.absPath || null);
         rebindTabBar();
         showSidebarAndTabs();
@@ -779,6 +799,7 @@ void (async () => {
         tabs.updateActive({ content, isDirty: true });
         rebindTabBar();
         preview.update(content);
+        stats.update(content, { from: 0, to: 0 });
         showToast(`Restored draft of "${label}"`);
       }
     } else {
@@ -795,6 +816,7 @@ void (async () => {
       tabs.updateActive({ content, isDirty: true });
       rebindTabBar();
       preview.update(content);
+      stats.update(content, { from: 0, to: 0 });
       showToast(`Recovered unsaved changes to "${label}"`);
     }
   }
