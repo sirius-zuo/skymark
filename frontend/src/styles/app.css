@@ -49,7 +49,7 @@ body {
   color: var(--color-text-muted);
 }
 .stats-toggle-btn:hover { color: var(--color-text); }
-.stats-footer {
+#stats-footer {
   display: flex;
   align-items: center;
   height: 24px;
