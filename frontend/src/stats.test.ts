@@ -57,3 +57,39 @@ describe("estimateTokens", () => {
     expect(estimateTokens("")).toBe(0);
   });
 });
+
+import { createStatsBar } from "./stats";
+
+describe("createStatsBar", () => {
+  it("renders whole-document stats when the selection is empty", () => {
+    const el = document.createElement("div");
+    const bar = createStatsBar(el);
+    bar.update("hello world", { from: 0, to: 0 });
+    expect(el.textContent).toBe("2 words · 11 characters · ~3 tokens · 1 line");
+  });
+
+  it("renders selection stats with a 'selected' suffix when the selection is non-empty", () => {
+    const el = document.createElement("div");
+    const bar = createStatsBar(el);
+    bar.update("hello world", { from: 0, to: 5 }); // "hello"
+    expect(el.textContent).toBe(
+      "1 word selected · 5 characters selected · ~1 token selected · 1 line selected"
+    );
+  });
+
+  it("uses singular forms for a count of exactly 1", () => {
+    const el = document.createElement("div");
+    const bar = createStatsBar(el);
+    bar.update("hi", { from: 0, to: 0 });
+    expect(el.textContent).toBe("1 word · 2 characters · ~1 token · 1 line");
+  });
+
+  it("sets a tooltip explaining the token estimate", () => {
+    const el = document.createElement("div");
+    const bar = createStatsBar(el);
+    bar.update("hello", { from: 0, to: 0 });
+    expect(el.title).toBe(
+      "Estimated at ~4 characters per token; actual token count varies by model."
+    );
+  });
+});
