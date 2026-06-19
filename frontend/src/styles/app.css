@@ -39,6 +39,27 @@ body {
   color: var(--color-text-muted);
 }
 .theme-toggle-btn:hover { color: var(--color-text); }
+.stats-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 var(--space-1);
+  line-height: 1;
+  color: var(--color-text-muted);
+}
+.stats-toggle-btn:hover { color: var(--color-text); }
+.stats-footer {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-4);
+  border-top: var(--pane-divider);
+  background: var(--color-surface);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  user-select: none;
+}
 .export-dropdown { position: relative; }
 .export-btn {
   background: none;
@@ -74,7 +95,7 @@ body {
 
 @media print {
   .titlebar, #tab-bar, .editor-pane, #sidebar, #sidebar-resizer,
-  #toast-root { display: none !important; }
+  #toast-root, #stats-footer { display: none !important; }
   html, body, #app { height: auto !important; }
   .panes { display: block !important; grid-template-columns: 1fr !important; width: 100% !important; overflow: visible !important; height: auto !important; }
   .preview-pane { width: 100% !important; border: none; overflow: visible !important; height: auto !important; }
@@ -82,7 +103,7 @@ body {
   .preview-content { max-width: none !important; }
 
   body.print-source .panes { display: none !important; }
-  body.print-source .titlebar, body.print-source #tab-bar, body.print-source #update-banner-root, body.print-source #toast-root { display: none !important; }
+  body.print-source .titlebar, body.print-source #tab-bar, body.print-source #update-banner-root, body.print-source #toast-root, body.print-source #stats-footer { display: none !important; }
   body.print-source { margin: 0 !important; padding: 0 !important; }
   body.print-source #app { display: block !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
   #skymark-print-source {
