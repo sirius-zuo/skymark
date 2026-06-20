@@ -18,6 +18,7 @@ GitHub renders the same files by parsing the YAML and showing it as a plain key/
 - Invalid or non-mapping YAML — falls back silently to today's (pre-existing, buggy-but-harmless) rendering. No error banner, no crash.
 - New-document frontmatter scaffolding/templates.
 - Frontmatter detection anywhere other than the very start of the file (e.g. no support for frontmatter after leading blank lines).
+- Perfect editor/preview parity on invalid-but-fenced YAML: the editor's overlay highlights any correctly-fenced block as YAML regardless of whether the YAML inside it actually parses, while the preview only renders a table for a valid mapping and otherwise falls back to plain Markdown rendering. This is a second, narrower known divergence beyond the no-closing-fence case above — cosmetic only (highlighting vs. no highlighting in the editor), never a rendering-correctness issue, since the preview's fallback behavior is unaffected.
 
 ## Design
 
