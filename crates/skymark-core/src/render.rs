@@ -3,6 +3,7 @@ use std::ops::Range;
 use std::sync::{LazyLock, Mutex};
 
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag};
+use serde_yaml::Value;
 use thiserror::Error;
 
 use crate::sanitize::sanitize;
@@ -153,6 +154,70 @@ fn frontmatter_span(markdown: &str) -> Option<(Range<usize>, usize)> {
         offset += line.len() + 1;
     }
     None
+}
+
+/// Converts a YAML scalar key to its string form for use as a table row
+/// label. Frontmatter keys are conventionally plain strings; the other
+/// branches handle YAML's more permissive key types without panicking.
+fn yaml_key_to_string(key: &Value) -> String {
+    match key {
+        Value::String(s) => s.clone(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::Null => "null".to_string(),
+        other => format!("{other:?}"),
+    }
+}
+
+/// Renders a YAML value as HTML for a frontmatter table cell. Scalars
+/// become HTML-escaped text; sequences become a comma-joined list; mappings
+/// become one `key: value` line per entry (indented two spaces per nesting
+/// level, joined with `<br>`), recursing for further nesting.
+fn render_yaml_value(value: &Value, depth: usize) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(b) => html_escape(&b.to_string()),
+        Value::Number(n) => html_escape(&n.to_string()),
+        Value::String(s) => html_escape(s),
+        Value::Sequence(seq) => seq
+            .iter()
+            .map(|v| render_yaml_value(v, depth))
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Mapping(map) => {
+            let indent = "&nbsp;&nbsp;".repeat(depth + 1);
+            map.iter()
+                .map(|(k, v)| {
+                    let key = html_escape(&yaml_key_to_string(k));
+                    let val = render_yaml_value(v, depth + 1);
+                    format!("{indent}{key}: {val}")
+                })
+                .collect::<Vec<_>>()
+                .join("<br>")
+        }
+        Value::Tagged(t) => render_yaml_value(&t.value, depth),
+    }
+}
+
+/// Parses `yaml_body` and, if it is a non-empty YAML mapping, renders it as
+/// an HTML table (one row per top-level key). Returns `None` for invalid
+/// YAML, a non-mapping top-level value, or an empty mapping — callers
+/// should treat `None` as "no frontmatter to render" and fall back to
+/// normal Markdown rendering of the whole document.
+fn render_frontmatter_table(yaml_body: &str) -> Option<String> {
+    let value: Value = serde_yaml::from_str(yaml_body).ok()?;
+    let Value::Mapping(map) = value else { return None };
+    if map.is_empty() {
+        return None;
+    }
+    let mut html = String::from("<table data-line=\"1\"><tbody>");
+    for (k, v) in &map {
+        let key = html_escape(&yaml_key_to_string(k));
+        let val = render_yaml_value(v, 0);
+        html.push_str(&format!("<tr><td>{key}</td><td>{val}</td></tr>"));
+    }
+    html.push_str("</tbody></table>");
+    Some(html)
 }
 
 /// Convert a Markdown source string to a sanitized HTML fragment.
@@ -383,5 +448,55 @@ mod tests {
         let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
         assert_eq!(&md[yaml_range], "name: skill\r\n");
         assert_eq!(&md[end..], "\r\nbody\r\n");
+    }
+
+    #[test]
+    fn render_frontmatter_table_simple_mapping() {
+        let html = render_frontmatter_table("name: skill\ndescription: a test\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>name</td><td>skill</td></tr><tr><td>description</td><td>a test</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_nested_mapping() {
+        let html = render_frontmatter_table("metadata:\n  type: feedback\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>metadata</td><td>&nbsp;&nbsp;type: feedback</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_sequence_value() {
+        let html = render_frontmatter_table("tags:\n  - a\n  - b\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>tags</td><td>a, b</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_escapes_html() {
+        let html = render_frontmatter_table("title: \"<script>alert(1)</script>\"\n").unwrap();
+        assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_non_mapping() {
+        assert!(render_frontmatter_table("just a string\n").is_none());
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_invalid_yaml() {
+        assert!(render_frontmatter_table("key: [unclosed\n").is_none());
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_empty_mapping() {
+        assert!(render_frontmatter_table("").is_none());
+        assert!(render_frontmatter_table("{}\n").is_none());
     }
 }
