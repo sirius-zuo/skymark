@@ -244,18 +244,39 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
         }
     }
 
+    // Split off a leading YAML frontmatter block, if one is present and
+    // parses to a non-empty mapping. `body` and `line_offset` let the rest
+    // of the pipeline behave exactly as if `body` were the whole document,
+    // just with line numbers shifted to match their position in the
+    // original `markdown` string.
+    let (frontmatter_html, body, line_offset) = match frontmatter_span(markdown) {
+        Some((yaml_range, frontmatter_end)) => {
+            match render_frontmatter_table(&markdown[yaml_range]) {
+                Some(table_html) => {
+                    let consumed_lines = markdown[..frontmatter_end].matches('\n').count();
+                    (Some(table_html), &markdown[frontmatter_end..], consumed_lines)
+                }
+                None => (None, markdown, 0),
+            }
+        }
+        None => (None, markdown, 0),
+    };
+
     // Full render pipeline
     let line_starts: Vec<usize> = std::iter::once(0)
-        .chain(markdown.match_indices('\n').map(|(i, _)| i + 1))
+        .chain(body.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
-    let heading_slugs = collect_heading_slugs(markdown);
+    let heading_slugs = collect_heading_slugs(body);
     let mut heading_idx = 0;
     let mut html_buf = String::new();
-    let parser = Parser::new_ext(markdown, gfm_options());
+    if let Some(table_html) = &frontmatter_html {
+        html_buf.push_str(table_html);
+    }
+    let parser = Parser::new_ext(body, gfm_options());
     for (event, range) in parser.into_offset_iter() {
         if let Event::Start(ref tag) = event {
             if is_block_tag(tag) {
-                let line = byte_to_line(range.start, &line_starts);
+                let line = byte_to_line(range.start, &line_starts) + line_offset;
                 if matches!(tag, Tag::Heading { .. }) {
                     let slug = heading_slugs
                         .get(heading_idx)
@@ -498,5 +519,56 @@ mod tests {
     fn render_frontmatter_table_none_for_empty_mapping() {
         assert!(render_frontmatter_table("").is_none());
         assert!(render_frontmatter_table("{}\n").is_none());
+    }
+
+    #[test]
+    fn render_html_renders_frontmatter_table_then_body() {
+        let html = render_html("---\nname: skill\ndescription: a test\n---\n\n# Heading\n").unwrap();
+        assert!(
+            html.contains("<table data-line=\"1\"><tbody><tr><td>name</td><td>skill</td></tr><tr><td>description</td><td>a test</td></tr></tbody></table>"),
+            "missing frontmatter table: {html}"
+        );
+        // Document lines: 1 ---, 2 name, 3 description, 4 ---, 5 blank, 6 # Heading.
+        assert!(
+            html.contains(r#"data-line="6""#),
+            "heading should carry the original document's line number: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_falls_back_when_no_closing_fence() {
+        let html = render_html("---\nname: skill\n\n# Heading\n").unwrap();
+        assert!(!html.contains("<table"), "should not render a table: {html}");
+        assert!(
+            html.contains("name: skill"),
+            "frontmatter-like text should render as ordinary content: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_falls_back_for_invalid_yaml() {
+        let html = render_html("---\nkey: [unclosed\n---\n\n# Heading\n").unwrap();
+        assert!(!html.contains("<table"), "should not render a table: {html}");
+    }
+
+    #[test]
+    fn render_html_ignores_dashes_not_at_document_start() {
+        let html = render_html("# Heading\n\n---\n\nMore text.\n").unwrap();
+        assert!(
+            !html.contains("<table"),
+            "should not treat mid-document --- as frontmatter: {html}"
+        );
+        assert!(
+            html.contains("<hr"),
+            "--- after a blank line following content should still render as a thematic break: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_unaffected_when_no_frontmatter() {
+        let html = render_html("# Hello\n\nA paragraph.\n").unwrap();
+        assert!(!html.contains("<table"));
+        assert!(html.contains(r#"data-line="1""#));
+        assert!(html.contains(r#"data-line="3""#));
     }
 }
