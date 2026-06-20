@@ -12,6 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 pulldown-cmark.workspace = true
 ammonia.workspace = true
+serde_yaml.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

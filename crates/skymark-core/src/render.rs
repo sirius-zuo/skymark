@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::ops::Range;
 use std::sync::{LazyLock, Mutex};
 
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag};
@@ -116,6 +117,42 @@ fn collect_heading_slugs(markdown: &str) -> Vec<String> {
         }
     }
     slugs
+}
+
+/// Detects a leading YAML frontmatter block per GitHub's rule: the
+/// document's first line is exactly `---`, and some later line is exactly
+/// `---` or `...`. Returns the byte range of the YAML body between the
+/// fences (excluding both fence lines) and the byte offset immediately
+/// after the closing fence's line (including its trailing newline, if
+/// present). Returns `None` if either condition isn't met.
+fn frontmatter_span(markdown: &str) -> Option<(Range<usize>, usize)> {
+    let mut lines = markdown.split('\n');
+    let first = lines.next()?;
+    if first.trim_end_matches('\r') != "---" {
+        return None;
+    }
+    // The first line must be followed by a newline for a closing fence to
+    // exist at all.
+    if markdown.as_bytes().get(first.len()) != Some(&b'\n') {
+        return None;
+    }
+    let yaml_start = first.len() + 1;
+    let mut offset = yaml_start;
+    for line in lines {
+        let trimmed = line.trim_end_matches('\r');
+        if trimmed == "---" || trimmed == "..." {
+            let yaml_end = offset;
+            let fence_end = offset + line.len();
+            let frontmatter_end = if markdown.as_bytes().get(fence_end) == Some(&b'\n') {
+                fence_end + 1
+            } else {
+                fence_end
+            };
+            return Some((yaml_start..yaml_end, frontmatter_end));
+        }
+        offset += line.len() + 1;
+    }
+    None
 }
 
 /// Convert a Markdown source string to a sanitized HTML fragment.
@@ -302,5 +339,49 @@ mod tests {
             html.contains("class=\"language-"),
             "class attribute missing: {html}"
         );
+    }
+
+    #[test]
+    fn frontmatter_span_detects_basic_block() {
+        let md = "---\nname: skill\n---\n\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\n");
+        assert_eq!(&md[end..], "\nbody\n");
+    }
+
+    #[test]
+    fn frontmatter_span_accepts_dots_closing_fence() {
+        let md = "---\nname: skill\n...\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\n");
+        assert_eq!(&md[end..], "body\n");
+    }
+
+    #[test]
+    fn frontmatter_span_none_when_dashes_not_first_line() {
+        let md = "# Heading\n\n---\nnot frontmatter\n---\n";
+        assert!(frontmatter_span(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_span_none_without_closing_fence() {
+        let md = "---\nname: skill\n\nbody\n";
+        assert!(frontmatter_span(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_span_handles_empty_yaml_body() {
+        let md = "---\n---\n\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "");
+        assert_eq!(&md[end..], "\nbody\n");
+    }
+
+    #[test]
+    fn frontmatter_span_handles_crlf_line_endings() {
+        let md = "---\r\nname: skill\r\n---\r\n\r\nbody\r\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\r\n");
+        assert_eq!(&md[end..], "\r\nbody\r\n");
     }
 }
