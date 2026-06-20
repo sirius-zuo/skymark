@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
+use std::ops::Range;
 use std::sync::{LazyLock, Mutex};
 
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag};
+use serde_yaml::Value;
 use thiserror::Error;
 
 use crate::sanitize::sanitize;
@@ -118,6 +120,108 @@ fn collect_heading_slugs(markdown: &str) -> Vec<String> {
     slugs
 }
 
+/// Detects a leading YAML frontmatter block per GitHub's rule: the
+/// document's first line is exactly `---`, and some later line is exactly
+/// `---` or `...`. Returns the byte range of the YAML body between the
+/// fences (excluding both fence lines) and the byte offset immediately
+/// after the closing fence's line (including its trailing newline, if
+/// present). Returns `None` if either condition isn't met.
+fn frontmatter_span(markdown: &str) -> Option<(Range<usize>, usize)> {
+    let mut lines = markdown.split('\n');
+    let first = lines.next()?;
+    if first.trim_end_matches('\r') != "---" {
+        return None;
+    }
+    // The first line must be followed by a newline for a closing fence to
+    // exist at all.
+    if markdown.as_bytes().get(first.len()) != Some(&b'\n') {
+        return None;
+    }
+    let yaml_start = first.len() + 1;
+    let mut offset = yaml_start;
+    for line in lines {
+        let trimmed = line.trim_end_matches('\r');
+        if trimmed == "---" || trimmed == "..." {
+            let yaml_end = offset;
+            let fence_end = offset + line.len();
+            let frontmatter_end = if markdown.as_bytes().get(fence_end) == Some(&b'\n') {
+                fence_end + 1
+            } else {
+                fence_end
+            };
+            return Some((yaml_start..yaml_end, frontmatter_end));
+        }
+        offset += line.len() + 1;
+    }
+    None
+}
+
+/// Converts a YAML scalar key to its string form for use as a table row
+/// label. Frontmatter keys are conventionally plain strings; the other
+/// branches handle YAML's more permissive key types without panicking.
+fn yaml_key_to_string(key: &Value) -> String {
+    match key {
+        Value::String(s) => s.clone(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::Null => "null".to_string(),
+        other => format!("{other:?}"),
+    }
+}
+
+/// Renders a YAML value as HTML for a frontmatter table cell. Scalars
+/// become HTML-escaped text; sequences become a comma-joined list; mappings
+/// become one `key: value` line per entry (indented two spaces per nesting
+/// level, joined with `<br>`), recursing for further nesting.
+fn render_yaml_value(value: &Value, depth: usize) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(b) => html_escape(&b.to_string()),
+        Value::Number(n) => html_escape(&n.to_string()),
+        Value::String(s) => html_escape(s),
+        Value::Sequence(seq) => seq
+            .iter()
+            .map(|v| render_yaml_value(v, depth))
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Mapping(map) => {
+            let indent = "&nbsp;&nbsp;".repeat(depth + 1);
+            map.iter()
+                .map(|(k, v)| {
+                    let key = html_escape(&yaml_key_to_string(k));
+                    let val = render_yaml_value(v, depth + 1);
+                    format!("{indent}{key}: {val}")
+                })
+                .collect::<Vec<_>>()
+                .join("<br>")
+        }
+        Value::Tagged(t) => render_yaml_value(&t.value, depth),
+    }
+}
+
+/// Parses `yaml_body` and, if it is a non-empty YAML mapping, renders it as
+/// an HTML table (one row per top-level key). Returns `None` for invalid
+/// YAML, a non-mapping top-level value, or an empty mapping — callers
+/// should treat `None` as "no frontmatter to render" and fall back to
+/// normal Markdown rendering of the whole document.
+fn render_frontmatter_table(yaml_body: &str) -> Option<String> {
+    let value: Value = serde_yaml::from_str(yaml_body).ok()?;
+    let Value::Mapping(map) = value else {
+        return None;
+    };
+    if map.is_empty() {
+        return None;
+    }
+    let mut html = String::from("<table data-line=\"1\"><tbody>");
+    for (k, v) in &map {
+        let key = html_escape(&yaml_key_to_string(k));
+        let val = render_yaml_value(v, 0);
+        html.push_str(&format!("<tr><td>{key}</td><td>{val}</td></tr>"));
+    }
+    html.push_str("</tbody></table>");
+    Some(html)
+}
+
 /// Convert a Markdown source string to a sanitized HTML fragment.
 ///
 /// Pipeline: pulldown-cmark (CommonMark + GFM extensions) -> HTML buffer -> sanitizer.
@@ -142,18 +246,43 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
         }
     }
 
+    // Split off a leading YAML frontmatter block, if one is present and
+    // parses to a non-empty mapping. `body` and `line_offset` let the rest
+    // of the pipeline behave exactly as if `body` were the whole document,
+    // just with line numbers shifted to match their position in the
+    // original `markdown` string.
+    let (frontmatter_html, body, line_offset) = match frontmatter_span(markdown) {
+        Some((yaml_range, frontmatter_end)) => {
+            match render_frontmatter_table(&markdown[yaml_range]) {
+                Some(table_html) => {
+                    let consumed_lines = markdown[..frontmatter_end].matches('\n').count();
+                    (
+                        Some(table_html),
+                        &markdown[frontmatter_end..],
+                        consumed_lines,
+                    )
+                }
+                None => (None, markdown, 0),
+            }
+        }
+        None => (None, markdown, 0),
+    };
+
     // Full render pipeline
     let line_starts: Vec<usize> = std::iter::once(0)
-        .chain(markdown.match_indices('\n').map(|(i, _)| i + 1))
+        .chain(body.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
-    let heading_slugs = collect_heading_slugs(markdown);
+    let heading_slugs = collect_heading_slugs(body);
     let mut heading_idx = 0;
     let mut html_buf = String::new();
-    let parser = Parser::new_ext(markdown, gfm_options());
+    if let Some(table_html) = &frontmatter_html {
+        html_buf.push_str(table_html);
+    }
+    let parser = Parser::new_ext(body, gfm_options());
     for (event, range) in parser.into_offset_iter() {
         if let Event::Start(ref tag) = event {
             if is_block_tag(tag) {
-                let line = byte_to_line(range.start, &line_starts);
+                let line = byte_to_line(range.start, &line_starts) + line_offset;
                 if matches!(tag, Tag::Heading { .. }) {
                     let slug = heading_slugs
                         .get(heading_idx)
@@ -302,5 +431,157 @@ mod tests {
             html.contains("class=\"language-"),
             "class attribute missing: {html}"
         );
+    }
+
+    #[test]
+    fn frontmatter_span_detects_basic_block() {
+        let md = "---\nname: skill\n---\n\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\n");
+        assert_eq!(&md[end..], "\nbody\n");
+    }
+
+    #[test]
+    fn frontmatter_span_accepts_dots_closing_fence() {
+        let md = "---\nname: skill\n...\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\n");
+        assert_eq!(&md[end..], "body\n");
+    }
+
+    #[test]
+    fn frontmatter_span_none_when_dashes_not_first_line() {
+        let md = "# Heading\n\n---\nnot frontmatter\n---\n";
+        assert!(frontmatter_span(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_span_none_without_closing_fence() {
+        let md = "---\nname: skill\n\nbody\n";
+        assert!(frontmatter_span(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_span_handles_empty_yaml_body() {
+        let md = "---\n---\n\nbody\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "");
+        assert_eq!(&md[end..], "\nbody\n");
+    }
+
+    #[test]
+    fn frontmatter_span_handles_crlf_line_endings() {
+        let md = "---\r\nname: skill\r\n---\r\n\r\nbody\r\n";
+        let (yaml_range, end) = frontmatter_span(md).expect("expected frontmatter");
+        assert_eq!(&md[yaml_range], "name: skill\r\n");
+        assert_eq!(&md[end..], "\r\nbody\r\n");
+    }
+
+    #[test]
+    fn render_frontmatter_table_simple_mapping() {
+        let html = render_frontmatter_table("name: skill\ndescription: a test\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>name</td><td>skill</td></tr><tr><td>description</td><td>a test</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_nested_mapping() {
+        let html = render_frontmatter_table("metadata:\n  type: feedback\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>metadata</td><td>&nbsp;&nbsp;type: feedback</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_sequence_value() {
+        let html = render_frontmatter_table("tags:\n  - a\n  - b\n").unwrap();
+        assert_eq!(
+            html,
+            "<table data-line=\"1\"><tbody><tr><td>tags</td><td>a, b</td></tr></tbody></table>"
+        );
+    }
+
+    #[test]
+    fn render_frontmatter_table_escapes_html() {
+        let html = render_frontmatter_table("title: \"<script>alert(1)</script>\"\n").unwrap();
+        assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(!html.contains("<script>"));
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_non_mapping() {
+        assert!(render_frontmatter_table("just a string\n").is_none());
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_invalid_yaml() {
+        assert!(render_frontmatter_table("key: [unclosed\n").is_none());
+    }
+
+    #[test]
+    fn render_frontmatter_table_none_for_empty_mapping() {
+        assert!(render_frontmatter_table("").is_none());
+        assert!(render_frontmatter_table("{}\n").is_none());
+    }
+
+    #[test]
+    fn render_html_renders_frontmatter_table_then_body() {
+        let html =
+            render_html("---\nname: skill\ndescription: a test\n---\n\n# Heading\n").unwrap();
+        assert!(
+            html.contains("<table data-line=\"1\"><tbody><tr><td>name</td><td>skill</td></tr><tr><td>description</td><td>a test</td></tr></tbody></table>"),
+            "missing frontmatter table: {html}"
+        );
+        // Document lines: 1 ---, 2 name, 3 description, 4 ---, 5 blank, 6 # Heading.
+        assert!(
+            html.contains(r#"data-line="6""#),
+            "heading should carry the original document's line number: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_falls_back_when_no_closing_fence() {
+        let html = render_html("---\nname: skill\n\n# Heading\n").unwrap();
+        assert!(
+            !html.contains("<table"),
+            "should not render a table: {html}"
+        );
+        assert!(
+            html.contains("name: skill"),
+            "frontmatter-like text should render as ordinary content: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_falls_back_for_invalid_yaml() {
+        let html = render_html("---\nkey: [unclosed\n---\n\n# Heading\n").unwrap();
+        assert!(
+            !html.contains("<table"),
+            "should not render a table: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_ignores_dashes_not_at_document_start() {
+        let html = render_html("# Heading\n\n---\n\nMore text.\n").unwrap();
+        assert!(
+            !html.contains("<table"),
+            "should not treat mid-document --- as frontmatter: {html}"
+        );
+        assert!(
+            html.contains("<hr"),
+            "--- after a blank line following content should still render as a thematic break: {html}"
+        );
+    }
+
+    #[test]
+    fn render_html_unaffected_when_no_frontmatter() {
+        let html = render_html("# Hello\n\nA paragraph.\n").unwrap();
+        assert!(!html.contains("<table"));
+        assert!(html.contains(r#"data-line="1""#));
+        assert!(html.contains(r#"data-line="3""#));
     }
 }

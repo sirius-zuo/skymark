@@ -1,7 +1,7 @@
 import { EditorState, EditorSelection, RangeSetBuilder, Transaction, type Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, ViewPlugin, DecorationSet, Decoration, ViewUpdate } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
+import { markdownWithFrontmatter } from "./frontmatter-lang";
 import { syntaxHighlighting } from "@codemirror/language";
 import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import { codeblockHighlight, findCodeBlocks } from "./codeblock-highlight";
@@ -200,7 +200,7 @@ export function createEditor(
           ...historyKeymap,
           ...searchKeymap,
         ]),
-        markdown(),
+        markdownWithFrontmatter(),
         syntaxHighlighting(oneDarkHighlightStyle, { fallback: true }),
         codeblockHighlight,
         mathPlugin,
