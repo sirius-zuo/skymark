@@ -206,7 +206,9 @@ fn render_yaml_value(value: &Value, depth: usize) -> String {
 /// normal Markdown rendering of the whole document.
 fn render_frontmatter_table(yaml_body: &str) -> Option<String> {
     let value: Value = serde_yaml::from_str(yaml_body).ok()?;
-    let Value::Mapping(map) = value else { return None };
+    let Value::Mapping(map) = value else {
+        return None;
+    };
     if map.is_empty() {
         return None;
     }
@@ -254,7 +256,11 @@ pub fn render_html(markdown: &str) -> Result<String, RenderError> {
             match render_frontmatter_table(&markdown[yaml_range]) {
                 Some(table_html) => {
                     let consumed_lines = markdown[..frontmatter_end].matches('\n').count();
-                    (Some(table_html), &markdown[frontmatter_end..], consumed_lines)
+                    (
+                        Some(table_html),
+                        &markdown[frontmatter_end..],
+                        consumed_lines,
+                    )
                 }
                 None => (None, markdown, 0),
             }
@@ -523,7 +529,8 @@ mod tests {
 
     #[test]
     fn render_html_renders_frontmatter_table_then_body() {
-        let html = render_html("---\nname: skill\ndescription: a test\n---\n\n# Heading\n").unwrap();
+        let html =
+            render_html("---\nname: skill\ndescription: a test\n---\n\n# Heading\n").unwrap();
         assert!(
             html.contains("<table data-line=\"1\"><tbody><tr><td>name</td><td>skill</td></tr><tr><td>description</td><td>a test</td></tr></tbody></table>"),
             "missing frontmatter table: {html}"
@@ -538,7 +545,10 @@ mod tests {
     #[test]
     fn render_html_falls_back_when_no_closing_fence() {
         let html = render_html("---\nname: skill\n\n# Heading\n").unwrap();
-        assert!(!html.contains("<table"), "should not render a table: {html}");
+        assert!(
+            !html.contains("<table"),
+            "should not render a table: {html}"
+        );
         assert!(
             html.contains("name: skill"),
             "frontmatter-like text should render as ordinary content: {html}"
@@ -548,7 +558,10 @@ mod tests {
     #[test]
     fn render_html_falls_back_for_invalid_yaml() {
         let html = render_html("---\nkey: [unclosed\n---\n\n# Heading\n").unwrap();
-        assert!(!html.contains("<table"), "should not render a table: {html}");
+        assert!(
+            !html.contains("<table"),
+            "should not render a table: {html}"
+        );
     }
 
     #[test]
