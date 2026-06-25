@@ -36,4 +36,30 @@ describe("createSyncExtension", () => {
 
     expect(preview.getDataLineNumbers).not.toHaveBeenCalled();
   });
+
+  it("runs viewport sync when the editor's scroll DOM scrolls", async () => {
+    const preview = makePreview();
+    const view = new EditorView({
+      state: EditorState.create({ doc: "a\nb\nc", extensions: [createSyncExtension(preview)] }),
+    });
+
+    view.scrollDOM.dispatchEvent(new Event("scroll"));
+    // The listener is rAF-throttled; wait two frames for the work to run.
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+    expect(preview.getDataLineNumbers).toHaveBeenCalled();
+  });
+
+  it("cursor sync scrolls the preview to the cursor's source line", async () => {
+    const preview = makePreview();
+    const view = new EditorView({
+      state: EditorState.create({ doc: "a\nb\nc", extensions: [createSyncExtension(preview)] }),
+    });
+
+    // Move the cursor into line 2 without changing the document.
+    view.dispatch({ selection: { anchor: 2 } });
+    await new Promise<void>((r) => setTimeout(r, 130));
+
+    expect(preview.scrollToLine).toHaveBeenCalledWith(2, expect.any(Number));
+  });
 });

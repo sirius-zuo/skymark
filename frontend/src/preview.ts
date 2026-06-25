@@ -18,8 +18,11 @@ export interface PreviewHandle {
    * preview content below `lineA` into view (fraction=1 → preview bottom).
    */
   scrollPastAnchor(lineA: number, fraction: number): void;
-  /** Cursor sync: scroll to the block containing source line `line`. */
-  scrollToLine(line: number): void;
+  /**
+   * Cursor sync: scroll the block containing source line `line` to
+   * `viewportFraction` down the visible area (0 = top, default).
+   */
+  scrollToLine(line: number, viewportFraction?: number): void;
   /** Fires with the topmost visible source line when the user scrolls the preview. */
   onScroll(listener: (line: number) => void): void;
 }
@@ -136,7 +139,7 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       doScroll(elADocY + fraction * totalRemaining);
     },
 
-    scrollToLine(line: number): void {
+    scrollToLine(line: number, viewportFraction = 0): void {
       if (Date.now() < previewDrivingUntil) return;
       const markers = Array.from(content.querySelectorAll<HTMLElement>("[data-line]"));
       if (markers.length === 0) return;
@@ -151,10 +154,15 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       }
       if (!markerA) { doScroll(0); return; }
       const aOff = markerOffset(markerA);
-      if (!markerB || lineB <= lineA) { doScroll(scroller.scrollTop + aOff); return; }
-      const bOff = markerOffset(markerB);
-      const fraction = (line - lineA) / (lineB - lineA);
-      doScroll(scroller.scrollTop + aOff + fraction * (bOff - aOff));
+      // Document-Y of the source line (interpolated between the bracketing markers).
+      let lineDocY = scroller.scrollTop + aOff;
+      if (markerB && lineB > lineA) {
+        const bOff = markerOffset(markerB);
+        const fraction = (line - lineA) / (lineB - lineA);
+        lineDocY = scroller.scrollTop + aOff + fraction * (bOff - aOff);
+      }
+      // Offset so the line lands viewportFraction down the visible area, not the top.
+      doScroll(lineDocY - viewportFraction * scroller.clientHeight);
     },
 
     onScroll(listener: (line: number) => void): void {
