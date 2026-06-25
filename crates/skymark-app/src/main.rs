@@ -29,6 +29,7 @@ fn main() {
         // which on macOS can happen before the setup closure runs.
         .manage(PendingOpen(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if let Ok(d) = app.path().app_data_dir().map(|d| d.join("drafts")) {
                 let _ = draft::gc_old_drafts_in_dir(&d);

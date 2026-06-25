@@ -1,4 +1,5 @@
 import { showToast } from "./toast";
+import { isTauri } from "./api";
 
 export interface UpdateBannerHandle {
   show(version: string, url: string): void;
@@ -31,13 +32,13 @@ export function createUpdateBanner(host: HTMLElement): UpdateBannerHandle {
   let releaseUrl = "";
 
   openLinkBtn.addEventListener("click", () => {
-    if (releaseUrl) {
-      showToast("Opening release page…");
-      const link = document.createElement("a");
-      link.href = releaseUrl;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.click();
+    if (!releaseUrl) return;
+    showToast("Opening release page…");
+    if (isTauri()) {
+      // Tauri's webview blocks <a target="_blank">; route through the OS instead.
+      void import("@tauri-apps/plugin-opener").then((m) => m.openUrl(releaseUrl));
+    } else {
+      window.open(releaseUrl, "_blank", "noopener,noreferrer");
     }
   });
 
