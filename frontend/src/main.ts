@@ -352,6 +352,12 @@ function rebindTabBar(): void {
       switchTab(i);
     });
   });
+  const newBtn = document.createElement("button");
+  newBtn.className = "tab-new-btn";
+  newBtn.textContent = "+";
+  newBtn.title = "New document";
+  newBtn.addEventListener("click", () => { startNewDocument(); });
+  tabBar.appendChild(newBtn);
 }
 
 function switchTab(idx: number): void {

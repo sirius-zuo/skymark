@@ -334,6 +334,22 @@ body {
 .tab-item .tab-close { margin-left: auto; padding: 0 2px; flex-shrink: 0; opacity: 0.5; }
 .tab-item .tab-close:hover { opacity: 1; }
 
+.tab-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0.6;
+}
+.tab-new-btn:hover { opacity: 1; background: var(--color-border); }
+
 /* ---- Resizers -------------------------------------------------------------- */
 
 #sidebar-resizer,
