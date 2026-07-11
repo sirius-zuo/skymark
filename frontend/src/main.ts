@@ -108,7 +108,9 @@ wirePreviewLinks(preview.getContentEl(), {
   },
   openExternal: (url) => {
     if (isTauri()) {
-      void import("@tauri-apps/plugin-opener").then((m) => m.openUrl(url));
+      void import("@tauri-apps/plugin-opener")
+        .then((m) => m.openUrl(url))
+        .catch((err) => { showToast(`Could not open ${url}: ${String(err)}`); });
     } else {
       window.open(url, "_blank", "noopener,noreferrer");
     }

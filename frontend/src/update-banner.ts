@@ -36,7 +36,11 @@ export function createUpdateBanner(host: HTMLElement): UpdateBannerHandle {
     showToast("Opening release page…");
     if (isTauri()) {
       // Tauri's webview blocks <a target="_blank">; route through the OS instead.
-      void import("@tauri-apps/plugin-opener").then((m) => m.openUrl(releaseUrl));
+      void import("@tauri-apps/plugin-opener")
+        .then((m) => m.openUrl(releaseUrl))
+        .catch((err) => {
+          showToast(`Could not open release page: ${String(err)}`);
+        });
     } else {
       window.open(releaseUrl, "_blank", "noopener,noreferrer");
     }
