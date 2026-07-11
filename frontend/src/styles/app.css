@@ -189,7 +189,7 @@ body {
 .editor-pane .cm-activeLineGutter { color: var(--color-text); font-weight: 500; }
 
 .preview-pane { background: var(--color-surface); overflow: hidden; }
-.preview-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; padding: var(--space-5) var(--space-6); }
+.preview-scroll { overflow-y: auto; overflow-x: hidden; height: 100%; padding: var(--space-5) var(--space-6); outline: none; }
 .preview-pane .preview-content {
   font-family: var(--font-body);
   font-size: 16px;

@@ -30,11 +30,26 @@ export interface PreviewHandle {
 export function createPreview(host: HTMLElement): PreviewHandle {
   const scroller = document.createElement("div");
   scroller.className = "preview-scroll";
+  // Focusable so a click in the preview moves focus here, letting the ⌘A
+  // handler below scope select-all to the preview instead of the whole app.
+  scroller.tabIndex = -1;
   host.appendChild(scroller);
 
   const content = document.createElement("div");
   content.className = "preview-content";
   scroller.appendChild(content);
+
+  scroller.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (!sel) return;
+      const range = document.createRange();
+      range.selectNodeContents(content);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  });
 
   const parser = new DOMParser();
   let timer: number | null = null;
