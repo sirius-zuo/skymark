@@ -1,6 +1,7 @@
 import { createEditor } from "./editor";
 import { createSyncExtension } from "./sync";
 import { createPreview } from "./preview";
+import { wirePreviewLinks } from "./preview-links";
 import { createFileFlow } from "./files";
 import { createDraftHandle } from "./draft";
 import { showToast } from "./toast";
@@ -95,6 +96,22 @@ const editor = createEditor(
 );
 
 preview.onScroll((line) => { editor.scrollToSourceLine(line); });
+
+wirePreviewLinks(preview.getContentEl(), {
+  getBaseDir: () => (tabs.active?.absPath ? dirOf(tabs.active.absPath) : null),
+  openFile: (absPath) => {
+    void openFileByPath(absPath).catch((err) => {
+      showToast(`Could not open ${absPath}: ${String(err)}`);
+    });
+  },
+  openExternal: (url) => {
+    if (isTauri()) {
+      void import("@tauri-apps/plugin-opener").then((m) => m.openUrl(url));
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  },
+});
 
 onThemeChange(() => { preview.update(editor.getValue()); });
 window.addEventListener("resize", () => { preview.update(editor.getValue()); });
