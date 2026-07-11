@@ -29,7 +29,7 @@ export interface PreviewLinkActions {
   /** Directory of the active document, or null for an unsaved document. */
   getBaseDir(): string | null;
   /** Open a markdown file inside the app (same flow as a sidebar click). */
-  openFile(absPath: string): void;
+  openFile(absPath: string, fragment?: string): void;
   /** Open an external URL in the system browser. */
   openExternal(url: string): void;
 }
@@ -55,11 +55,21 @@ export function wirePreviewLinks(content: HTMLElement, actions: PreviewLinkActio
 
     const pathPart = href.replace(/[?#].*$/, "");
     if (!MD_EXTENSIONS.test(pathPart)) return;
+    const hashIdx = href.indexOf("#");
+    let fragment: string | undefined;
+    if (hashIdx !== -1 && hashIdx < href.length - 1) {
+      const raw = href.slice(hashIdx + 1);
+      try {
+        fragment = decodeURIComponent(raw);
+      } catch {
+        fragment = raw;
+      }
+    }
     const baseDir = actions.getBaseDir();
     if (pathPart.startsWith("/")) {
-      actions.openFile(resolveLinkPath("/", pathPart));
+      actions.openFile(resolveLinkPath("/", pathPart), fragment);
     } else if (baseDir) {
-      actions.openFile(resolveLinkPath(baseDir, pathPart));
+      actions.openFile(resolveLinkPath(baseDir, pathPart), fragment);
     }
   });
 }

@@ -27,7 +27,7 @@ describe("resolveLinkPath", () => {
 
 describe("wirePreviewLinks", () => {
   let content: HTMLElement;
-  let openFile: ReturnType<typeof vi.fn<(absPath: string) => void>>;
+  let openFile: ReturnType<typeof vi.fn<(absPath: string, fragment?: string) => void>>;
   let openExternal: ReturnType<typeof vi.fn<(url: string) => void>>;
   let baseDir: string | null;
 
@@ -46,7 +46,7 @@ describe("wirePreviewLinks", () => {
   beforeEach(() => {
     content = document.createElement("div");
     document.body.appendChild(content);
-    openFile = vi.fn<(absPath: string) => void>();
+    openFile = vi.fn<(absPath: string, fragment?: string) => void>();
     openExternal = vi.fn<(url: string) => void>();
     baseDir = "/docs";
     wirePreviewLinks(content, {
@@ -59,8 +59,18 @@ describe("wirePreviewLinks", () => {
   it("opens a relative .md link in the app, resolved against the base dir", () => {
     const ev = clickLink("./sub/notes.md");
     expect(ev.defaultPrevented).toBe(true);
-    expect(openFile).toHaveBeenCalledWith("/docs/sub/notes.md");
+    expect(openFile).toHaveBeenCalledWith("/docs/sub/notes.md", undefined);
     expect(openExternal).not.toHaveBeenCalled();
+  });
+
+  it("passes the fragment along so the heading can be scrolled to", () => {
+    clickLink("./other.md#some-section");
+    expect(openFile).toHaveBeenCalledWith("/docs/other.md", "some-section");
+  });
+
+  it("URL-decodes the fragment", () => {
+    clickLink("notes.md#caf%C3%A9");
+    expect(openFile).toHaveBeenCalledWith("/docs/notes.md", "café");
   });
 
   it("opens http(s) links externally", () => {

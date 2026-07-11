@@ -99,10 +99,12 @@ preview.onScroll((line) => { editor.scrollToSourceLine(line); });
 
 wirePreviewLinks(preview.getContentEl(), {
   getBaseDir: () => (tabs.active?.absPath ? dirOf(tabs.active.absPath) : null),
-  openFile: (absPath) => {
-    void openFileByPath(absPath).catch((err) => {
-      showToast(`Could not open ${absPath}: ${String(err)}`);
-    });
+  openFile: (absPath, fragment) => {
+    void openFileByPath(absPath)
+      .then(() => { if (fragment) preview.scrollToAnchor(fragment); })
+      .catch((err) => {
+        showToast(`Could not open ${absPath}: ${String(err)}`);
+      });
   },
   openExternal: (url) => {
     if (isTauri()) {

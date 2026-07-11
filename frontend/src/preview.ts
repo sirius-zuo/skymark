@@ -23,6 +23,13 @@ export interface PreviewHandle {
    * `viewportFraction` down the visible area (0 = top, default).
    */
   scrollToLine(line: number, viewportFraction?: number): void;
+  /**
+   * Scroll the heading with the given id to the top of the pane. Waits briefly
+   * for the id to appear, since renders are debounced and async. Scrolls via
+   * scrollTop (not the suppressed path) so the editor follows through the
+   * normal preview→editor scroll sync.
+   */
+  scrollToAnchor(id: string): void;
   /** Fires with the topmost visible source line when the user scrolls the preview. */
   onScroll(listener: (line: number) => void): void;
 }
@@ -178,6 +185,23 @@ export function createPreview(host: HTMLElement): PreviewHandle {
       }
       // Offset so the line lands viewportFraction down the visible area, not the top.
       doScroll(lineDocY - viewportFraction * scroller.clientHeight);
+    },
+
+    scrollToAnchor(id: string): void {
+      const deadline = Date.now() + 2000;
+      const tryScroll = (): boolean => {
+        // Compare ids directly instead of building a selector, so arbitrary
+        // slug characters need no escaping.
+        const el = Array.from(content.querySelectorAll<HTMLElement>("[id]"))
+          .find((n) => n.id === id);
+        if (!el) return false;
+        scroller.scrollTop += markerOffset(el);
+        return true;
+      };
+      if (tryScroll()) return;
+      const timer = window.setInterval(() => {
+        if (tryScroll() || Date.now() > deadline) window.clearInterval(timer);
+      }, 50);
     },
 
     onScroll(listener: (line: number) => void): void {

@@ -12,6 +12,7 @@ function makePreview(): PreviewHandle {
     scrollBetween: vi.fn(),
     scrollPastAnchor: vi.fn(),
     scrollToLine: vi.fn(),
+    scrollToAnchor: vi.fn(),
     onScroll: vi.fn(),
   };
 }

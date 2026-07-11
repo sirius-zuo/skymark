@@ -1,5 +1,63 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createPreview } from "./preview";
+
+function rectAt(top: number): DOMRect {
+  return { x: 0, y: top, width: 100, height: 20, top, left: 0, bottom: top + 20, right: 100, toJSON: () => ({}) } as DOMRect;
+}
+
+describe("preview scrollToAnchor", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setup() {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const preview = createPreview(host);
+    const scroller = host.querySelector<HTMLElement>(".preview-scroll")!;
+    scroller.getBoundingClientRect = () => rectAt(0);
+    return { preview, scroller, content: preview.getContentEl() };
+  }
+
+  function addHeading(content: HTMLElement, id: string, top: number): void {
+    const h = document.createElement("h2");
+    h.id = id;
+    h.getBoundingClientRect = () => rectAt(top);
+    content.appendChild(h);
+  }
+
+  it("scrolls the heading with the given id to the top of the pane", () => {
+    const { preview, scroller, content } = setup();
+    addHeading(content, "some-section", 500);
+    preview.scrollToAnchor("some-section");
+    vi.runOnlyPendingTimers();
+    expect(scroller.scrollTop).toBe(500);
+  });
+
+  it("waits for the heading to appear after an async render", () => {
+    const { preview, scroller, content } = setup();
+    preview.scrollToAnchor("late-section");
+    vi.advanceTimersByTime(150);
+    expect(scroller.scrollTop).toBe(0);
+    addHeading(content, "late-section", 300);
+    vi.advanceTimersByTime(150);
+    expect(scroller.scrollTop).toBe(300);
+  });
+
+  it("gives up after the deadline without scrolling", () => {
+    const { preview, scroller, content } = setup();
+    preview.scrollToAnchor("never");
+    vi.advanceTimersByTime(3000);
+    addHeading(content, "never", 400);
+    vi.advanceTimersByTime(1000);
+    expect(scroller.scrollTop).toBe(0);
+  });
+});
 
 describe("preview select-all", () => {
   beforeEach(() => {
